@@ -1,56 +1,68 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
-  moduleFormat    = "cjs"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-model Usuario {
-  id          Int        @id @default(autoincrement())
-  nombre      String
+enum Role {
+  ADMIN
+  USER
+  MODERATOR
+}
+
+
+model User {
+  id          Int        @id @default(uuid())
+  name      String
   email       String     @unique
-  contrasenia String
+  password String
   dni         String     @unique
   
   // RELACIONES INVERSAS (Prisma las necesita para saber que un usuario tiene muchos productos y reservas)
-  productos   Producto[]
-  reservas    Reserva[]
+  products   Product[]
+  reservations   Reservation[]
+  roles Json @default('["USER"]')
+  profile Profile?
 }
 
-model Producto {
-  id             Int       @id @default(autoincrement())
-  duenio_id      Int       // Este es el campo físico en la base de datos (la FK)
-  titulo         String
-  descripcion    String    @db.Text // Usamos @db.Text porque una descripción puede ser muy larga para un varchar común
-  precio_por_dia Float
-  precio_por_mes Float
-  zona           String
-  url_foto       String
-  deposito       Float
-  categoria      String
-
-  // RELACIONES
-  duenio         Usuario   @relation(fields: [duenio_id], references: [id])
-  reservas       Reserva[] // Un producto puede tener muchas reservas anotadas
+model Profile {
+  id        String @id @default(uuid())
+  description       String?
+  avatar String?
+  user_id String @unique
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-model Reserva {
-  id          Int      @id @default(autoincrement())
-  producto_id Int      // Campo físico de la FK hacia Producto
-  usuario_id  Int      // Campo físico de la FK hacia Usuario (el cliente que reserva)
-  fecha_inicio DateTime // En PostgreSQL los tipos 'date' se manejan como DateTime en Prisma
-  fecha_fin   DateTime
-  estado      String
+model Product {
+  id             Int       @id @default(uuid())  
+  title         String     
+  descripcion    String    @db.Text 
+  price_day      Float
+  price_month    Float
+  zone           String
+  city           String
+  state          String
+  address        String
+  url_photo       String
+  deposit       Float
+  category      String
 
   // RELACIONES
-  producto    Producto @relation(fields: [producto_id], references: [id])
-  usuario     Usuario  @relation(fields: [usuario_id], references: [id])
+  owner_id       User   @relation(fields: [duenio_id], references: [id])
+  reservations       Reservation[] // Un producto puede tener muchas reservas anotadas
+}
+
+model Reservation {
+  id          Int      @id @default(uuid())
+  date_init DateTime 
+  date_end    DateTime
+  status      String
+
+  // RELACIONES
+  product    Product @relation(fields: [product_id], references: [id])
+  user     User  @relation(fields: [user_id], references: [id])
+  owner_id Product   @relation(fields: [product_id], references: [owner_id])
 }
