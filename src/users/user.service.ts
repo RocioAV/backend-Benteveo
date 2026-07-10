@@ -25,21 +25,17 @@ export class UserService {
 
       const newUser = await this.prisma.user.create({
         data: {
-          ...userData,
+          email: createUserDto.email,
           password: hashedPassword,
-          name: userData.name || userData.email.split('@')[0],
+          name: createUserDto.name,
           roles: ['USER'],
-
           profile: {
             create: {
-              plan: 'FREE'
-            }
-          }
+              description: 'BIOGRAFIA TEMPORAL', 
+            },
+          },
+          dni: createUserDto.dni,  
         },
-        // Incluimos el perfil en la respuesta para verificar que se creó
-        include: {
-            profile: true 
-        }
       });
 
       return { ...newUser, roles: newUser.roles as Role[] };
@@ -87,9 +83,11 @@ export class UserService {
       where: { id },
       include: { 
         profile: true,
-          _count: { 
-          select: { notes: true } 
-        }
+        //   _count: { 
+        //   select: { 
+        //      reservations: 
+        //    } 
+        // }
       },
     });
 

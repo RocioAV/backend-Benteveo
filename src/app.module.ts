@@ -1,11 +1,67 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { PrismaModule } from './database/prisma.module';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { UserModule } from './users/user.module';
+import { AuthModule } from './auth/auth.module';
+// import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+// import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter';
+import { ValidationPipe } from './common/pipes/validation.pipe';
+import { PrismaModule } from './prisma/prisma.module';
+import { AuthGuard } from './common/guards/auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { JwtModule } from '@nestjs/jwt';
+// import { NoteModule } from './note/note.module';
+import { ProfileModule } from './profile/profile.module'; 
 
 @Module({
-  imports: [PrismaModule],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        global: true,
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '1d' },
+      }),
+    }),
+    UserModule,
+    AuthModule,
+    PrismaModule,
+    // NoteModule,
+    ProfileModule
+    // StripeModule,
+    // SubscriptionModule,
+  ],
+  // controllers: [WebhookController],
+  providers: [
+    // Filtros globales
+    // {
+    //   provide: APP_FILTER,
+    //   useClass: HttpExceptionFilter,
+    // },
+    // Filtro para errores de Prisma
+    // {
+    //   provide: APP_FILTER,
+    //   useClass: PrismaClientExceptionFilter,
+    // },
+    // Pipes globales
+    // Transformar y validar automáticamente los DTOs.
+    {
+      provide: APP_PIPE,
+      useClass: ValidationPipe,
+    },
+    // Guards globales
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}

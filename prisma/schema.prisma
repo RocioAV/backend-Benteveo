@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -15,7 +14,7 @@ enum Role {
 
 
 model User {
-  id          Int        @id @default(uuid())
+  id          String       @id @default(uuid())
   name      String
   email       String     @unique
   password String
@@ -24,7 +23,7 @@ model User {
   // RELACIONES INVERSAS (Prisma las necesita para saber que un usuario tiene muchos productos y reservas)
   products   Product[]
   reservations   Reservation[]
-  roles Json @default('["USER"]')
+  roles Json @default("[\"USER\"]")
   profile Profile?
 }
 
@@ -32,37 +31,40 @@ model Profile {
   id        String @id @default(uuid())
   description       String?
   avatar String?
-  user_id String @unique
-  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Product {
-  id             Int       @id @default(uuid())  
-  title         String     
+  id             String       @id @default(uuid())  
+  title          String     
   descripcion    String    @db.Text 
-  price_day      Float
-  price_month    Float
+  priceDay      Float
+  priceMonth    Float
   zone           String
   city           String
   state          String
   address        String
-  url_photo       String
+  urlPhoto       String
   deposit       Float
   category      String
+  ownerId String
 
   // RELACIONES
-  owner_id       User   @relation(fields: [duenio_id], references: [id])
+  owner      User   @relation(fields: [ownerId], references: [id])
   reservations       Reservation[] // Un producto puede tener muchas reservas anotadas
 }
 
 model Reservation {
-  id          Int      @id @default(uuid())
-  date_init DateTime 
-  date_end    DateTime
+  id          String       @id @default(uuid())
+  dateInit DateTime 
+  dateEnd    DateTime
   status      String
 
+  productId String
+  userId String
+
   // RELACIONES
-  product    Product @relation(fields: [product_id], references: [id])
-  user     User  @relation(fields: [user_id], references: [id])
-  owner_id Product   @relation(fields: [product_id], references: [owner_id])
+  product    Product @relation(fields: [productId], references: [id])
+  user     User  @relation(fields: [userId], references: [id])
 }

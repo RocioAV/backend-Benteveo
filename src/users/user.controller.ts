@@ -1,15 +1,15 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UsePipes, ValidationPipe, HttpCode, HttpStatus, Query, Req, BadRequestException, UseInterceptors, UploadedFile} from '@nestjs/common';
 import { UserService } from './user.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateUserDto } from 'dto/create-user.dto';
+import { PrismaService } from '../prisma/prisma.service'; 
+import { CreateUserDto } from './dto/create-user.dto'; 
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/types/admin.types';
-import { Public } from 'src/common/decorators/public.decorator';
+import { Public } from '../common/decorators/public.decorator';
 
 @Controller('user')
 export class UserController {
   constructor(
-    private readonly cloudinaryService: CloudinaryService,
+    // private readonly cloudinaryService: CloudinaryService,
     private readonly userService: UserService,
     private readonly prisma: PrismaService,
   ) {}
@@ -22,27 +22,27 @@ export class UserController {
     return this.userService.create(createUserDto);
   }
 
-  @Post('upload-avatar')
-  @UsePipes(new ValidationPipe())
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
+  // @Post('upload-avatar')
+  // @UsePipes(new ValidationPipe())
+  // @UseInterceptors(FileInterceptor('file'))
+  // async uploadAvatar(@Req() req: any, @UploadedFile() file: Express.Multer.File) {
     
-    if (!file) throw new BadRequestException('No se envió ninguna imagen');
+  //   if (!file) throw new BadRequestException('No se envió ninguna imagen');
 
-    // 1. Subir a Cloudinary y obtener URL
-    const imageUrl = await this.cloudinaryService.uploadImage(file);
+  //   // 1. Subir a Cloudinary y obtener URL
+  //   const imageUrl = await this.cloudinaryService.uploadImage(file);
 
-    // 2. Guardar SOLO LA URL en la base de datos
-    await this.prisma.profile.update({
-      where: { userId: req.user.sub },
-      data: { avatar: imageUrl },
-    });
+  //   // 2. Guardar SOLO LA URL en la base de datos
+  //   await this.prisma.profile.update({
+  //     where: { userId: req.user.sub },
+  //     data: { avatar: imageUrl },
+  //   });
 
-    return { 
-      message: 'Avatar actualizado', 
-      url: imageUrl 
-    };
-  }
+  //   return { 
+  //     message: 'Avatar actualizado', 
+  //     url: imageUrl 
+  //   };
+  // }
 
 
 

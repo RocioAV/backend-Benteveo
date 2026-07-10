@@ -1,18 +1,24 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { setupSwagger } from './swagger';
+
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-
-  // CORS
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    cors: true,
+  });
+  
   app.enableCors({
-    // origin: Define quién tiene permiso de entrar. Solo la URL exacta que pusimos pasará el filtro.
-    origin: frontendUrl, 
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  await app.listen(3000);
+  app.setGlobalPrefix('api/v1');
+
+  setupSwagger(app);
+
+  await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();
