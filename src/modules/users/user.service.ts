@@ -58,19 +58,21 @@ export class UserService {
   }
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
+    return this.prisma.user.findFirst({
+      where: { email, isDeleted: false },
     });
   }
 
   async findAll() {
-    return await this.prisma.user.findMany();
+    return await this.prisma.user.findMany({
+      where: { isDeleted: false },
+    });
   }
   
 
   async getUserWithProfile(userId: string) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
+  const user = await this.prisma.user.findFirst({
+    where: { id: userId, isDeleted: false },
     include: {
       profile: true 
     }
@@ -85,8 +87,8 @@ export class UserService {
 
 
   async findOne(id: string): Promise<User> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const user = await this.prisma.user.findFirst({
+      where: { id, isDeleted: false },
       include: { 
         profile: true,
       },
@@ -102,8 +104,9 @@ export class UserService {
 
   async remove(id: string): Promise<User> {
     try {
-      const deletedUser = await this.prisma.user.delete({
+      const deletedUser = await this.prisma.user.update({
         where: { id },
+        data: { isDeleted: true },
       });
 
       return deletedUser as User;

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Delete, UsePipes, ValidationPipe, HttpCode, HttpStatus, Req } from '@nestjs/common';
+import { Controller, Get, Param, Delete, UsePipes, ValidationPipe, HttpCode, HttpStatus, Req, Patch } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/admin.types';
@@ -32,7 +32,7 @@ export class UserController {
     return await this.userService.findOne(id);
   }
 
-  @Delete('delete')
+  @Patch('delete')
   @Roles(Role.ADMIN, Role.MODERATOR, Role.USER)
   @UsePipes(new ValidationPipe())
   @HttpCode(HttpStatus.OK)

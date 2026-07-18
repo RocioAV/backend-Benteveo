@@ -21,6 +21,7 @@ model User {
   products   Product[]
   reservations   Reservation[]
   role String @default("USER")
+  isDeleted Boolean @default(false)
   profile Profile?
 }
 
