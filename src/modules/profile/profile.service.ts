@@ -1,6 +1,6 @@
 // src/profile/profile.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ProfileService {
@@ -10,7 +10,7 @@ export class ProfileService {
   async findByUserId(userId: string) {
     const profile = await this.prisma.profile.findUnique({
       where: { userId: userId },
-      include: { user: { select: { email: true, roles: true } } } // Opcional: traer email del usuario
+      include: { user: { select: { email: true, role: true } } }
     });
 
     if (!profile) {
@@ -19,12 +19,5 @@ export class ProfileService {
     return profile;
   }
   
-  // Crear perfil inicial (se llamará desde el registro)
-  async createInitialProfile(userId: string) {
-      return await this.prisma.profile.create({
-          data: { 
-            userId,
-          }
-      });
-  }
+
 }

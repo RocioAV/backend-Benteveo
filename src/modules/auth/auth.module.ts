@@ -7,8 +7,8 @@ import { AuthController } from './auth.controller';
 import {
   ConfigService, ConfigModule
 } from '@nestjs/config'
-import { ProfileModule } from '@/profile/profile.module'; 
-import { AuthGuard } from '../common/guards/auth.guard'; 
+import { ProfileModule } from '@/modules/profile/profile.module'; 
+import { AuthGuard } from '../../common/guards/auth.guard'; 
 
 @Module({
   imports: [
