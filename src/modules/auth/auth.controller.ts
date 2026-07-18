@@ -1,6 +1,6 @@
 import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Public } from '../common/decorators/public.decorator'; 
+import { Public } from '../../common/decorators/public.decorator'; 
 // import { ApiBody } from '@nestjs/swagger';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login-dto';

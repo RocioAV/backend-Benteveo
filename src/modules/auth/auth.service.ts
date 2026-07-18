@@ -1,17 +1,15 @@
 import { Injectable, UnauthorizedException, ConflictException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { PrismaService } from "src/prisma/prisma.service";
-import { UserService } from "@/users/user.service"; 
-import { ProfileService } from "@/profile/profile.service";
+import { PrismaService } from "../../prisma/prisma.service";
+import { UserService } from "../users/user.service"; 
 import * as bcrypt from 'bcrypt';
-import { CreateUserDto } from "@/users/dto/create-user.dto";
+import { CreateUserDto } from "../users/dto/create-user.dto";
 
 @Injectable()
 export class AuthService{
   constructor(
     private prisma: PrismaService,
     private userService: UserService,
-    private profileService: ProfileService,
     private jwtService: JwtService,
   ) {}
 
@@ -33,7 +31,7 @@ export class AuthService{
     const payload = {
         sub: user.id,
         email: user.email,
-        roles: user.roles,
+        role: user.role,
     };
 
     return {
@@ -48,8 +46,6 @@ export class AuthService{
       }
 
       const newUser = await this.userService.create(signUpDto);
-
-      await this.profileService.createInitialProfile(newUser.id);
       
       return newUser;
   }

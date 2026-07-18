@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { UserService } from '@/users/user.service'; 
+import { UserService } from '../../users/user.service'; 
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -31,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('El usuario ya no existe');
     }
 
-    console.log('✅ Usuario encontrado con roles:', user.roles);
+    console.log('✅ Usuario encontrado con role:', user.role);
     return user; 
   }
 }
