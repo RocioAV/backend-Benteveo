@@ -50,6 +50,7 @@ model Product {
   ownerId String
 
   isAvailable     Boolean       @default(true)
+  isDeleted       Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

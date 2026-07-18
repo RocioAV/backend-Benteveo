@@ -11,7 +11,8 @@ import { AuthGuard } from './common/guards/auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { JwtModule } from '@nestjs/jwt';
 // import { NoteModule } from './note/note.module';
-import { ProfileModule } from './modules/profile/profile.module'; 
+import { ProfileModule } from './modules/profile/profile.module';
+import { ProductsModule } from './modules/products/products.module'; 
 
 @Module({
   imports: [
@@ -31,7 +32,8 @@ import { ProfileModule } from './modules/profile/profile.module';
     AuthModule,
     PrismaModule,
     // NoteModule,
-    ProfileModule
+    ProfileModule,
+    ProductsModule
     // StripeModule,
     // SubscriptionModule,
   ],
