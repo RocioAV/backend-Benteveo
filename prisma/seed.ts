@@ -27,7 +27,7 @@ async function main() {
       password: hashedPassword,
       dni: '00000000',
       isIdentityVerified: true,
-      role: JSON.stringify(['ADMIN']),
+      role: "ADMIN",
       profile: {
         create: {
           phone: '+5491100000000',
