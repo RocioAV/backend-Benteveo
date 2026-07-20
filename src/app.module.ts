@@ -12,7 +12,8 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { JwtModule } from '@nestjs/jwt';
 // import { NoteModule } from './note/note.module';
 import { ProfileModule } from './modules/profile/profile.module';
-import { ProductsModule } from './modules/products/products.module'; 
+import { ProductsModule } from './modules/products/products.module';
+import { ReservationsModule } from './modules/reservations/reservations.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { ProductsModule } from './modules/products/products.module';
     PrismaModule,
     // NoteModule,
     ProfileModule,
-    ProductsModule
+    ProductsModule,
+    ReservationsModule,
     // StripeModule,
     // SubscriptionModule,
   ],
