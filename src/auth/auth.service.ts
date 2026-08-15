@@ -2,7 +2,6 @@ import { Injectable, UnauthorizedException, ConflictException } from "@nestjs/co
 import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "src/prisma/prisma.service";
 import { UserService } from "@/users/user.service"; 
-import { ProfileService } from "@/profile/profile.service";
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from "@/users/dto/create-user.dto";
 
@@ -11,7 +10,6 @@ export class AuthService{
   constructor(
     private prisma: PrismaService,
     private userService: UserService,
-    private profileService: ProfileService,
     private jwtService: JwtService,
   ) {}
 
@@ -47,10 +45,6 @@ export class AuthService{
         throw new ConflictException('El email ya está en uso');
       }
 
-      const newUser = await this.userService.create(signUpDto);
-
-      await this.profileService.createInitialProfile(newUser.id);
-      
-      return newUser;
+      return this.userService.create(signUpDto);
   }
 }
