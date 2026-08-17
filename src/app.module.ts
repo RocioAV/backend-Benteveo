@@ -14,6 +14,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ProfileModule } from './modules/profile/profile.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { ReservationsModule } from './modules/reservations/reservations.module';
     ProfileModule,
     ProductsModule,
     ReservationsModule,
+    CloudinaryModule,
     // StripeModule,
     // SubscriptionModule,
   ],
