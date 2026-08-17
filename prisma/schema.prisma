@@ -57,6 +57,16 @@ model Product {
   // RELACIONES
   owner      User   @relation(fields: [ownerId], references: [id])
   reservations       Reservation[] // Un producto puede tener muchas reservas anotadas
+  photos     PhotoProduct[] // Un producto puede tener muchas fotos
+}
+
+model PhotoProduct {
+  id        String @id @default(uuid())
+  url       String
+  publicId  String
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Reservation {
