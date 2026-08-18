@@ -8,6 +8,8 @@ import {
   Body,
   Query,
   ParseUUIDPipe,
+  ParseFilePipe,
+  BadRequestException,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
@@ -15,6 +17,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiBody, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { PhotoProduct, Product } from '@prisma/client';
 import { ProductsService } from './products.service';
+import { ImageFileValidator } from '../../common/validators/image-file.validator';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Public } from '../../common/decorators/public.decorator';
@@ -70,7 +73,29 @@ export class ProductsController {
   @ApiParam({ name: 'id', type: String })
   uploadPhotos(
     @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFiles() files: Express.Multer.File[],
+    @UploadedFiles(
+      new ParseFilePipe({
+        fileIsRequired: true,
+        validators: [
+          new ImageFileValidator({
+            allowedMimeTypes: [
+              'image/jpeg',
+              'image/jpg',
+              'image/png',
+              'image/webp',
+            ],
+          }),
+        ],
+        exceptionFactory: (error) => {
+          const message =
+            error === 'File is required'
+              ? 'Debes adjuntar al menos una imagen'
+              : error;
+          return new BadRequestException(message);
+        },
+      }),
+    )
+    files: Express.Multer.File[],
   ): Promise<PhotoProduct[]> {
     return this.productsService.uploadPhotos(id, files);
   }
