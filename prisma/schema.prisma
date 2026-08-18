@@ -44,7 +44,6 @@ model Product {
   city           String
   state          String
   address        String
-  urlPhoto       String
   deposit       Float
   category      String
   ownerId String
