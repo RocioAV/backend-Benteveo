@@ -4,7 +4,6 @@ import {
   IsPositive,
   IsBoolean,
   IsOptional,
-  IsUrl,
   IsNotEmpty,
 } from 'class-validator';
 
@@ -44,9 +43,6 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   address!: string;
-
-  @IsString()
-  urlPhoto!: string;
 
   @IsNumber()
   @IsPositive()
