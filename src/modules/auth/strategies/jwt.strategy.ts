@@ -31,7 +31,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('El usuario ya no existe');
     }
 
-    console.log('✅ Usuario encontrado con role:', user.role);
-    return user; 
+    return user;
   }
 }
