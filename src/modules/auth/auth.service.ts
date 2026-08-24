@@ -45,12 +45,6 @@ export class AuthService{
         throw new ConflictException('El email ya está en uso');
       }
 
-<<<<<<< HEAD:src/auth/auth.service.ts
       return this.userService.create(signUpDto);
-=======
-      const newUser = await this.userService.create(signUpDto);
-      
-      return newUser;
->>>>>>> dev:src/modules/auth/auth.service.ts
   }
 }

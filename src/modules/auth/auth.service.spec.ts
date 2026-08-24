@@ -2,7 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import type { JwtService } from '@nestjs/jwt';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../../prisma/prisma.service';
 import type { UserService } from '../users/user.service';
 
 describe('AuthService', () => {
@@ -11,6 +11,7 @@ describe('AuthService', () => {
     email: 'juan@example.com',
     password: 'password123',
     dni: '12345678',
+    phone: '1122334455',
   };
 
   const newUser = {

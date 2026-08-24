@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UserAlreadyExistsException } from '../common/exceptions/user-exceptions';
-import type { PrismaService } from '../prisma/prisma.service';
+import { ConflictException } from '@nestjs/common';
+import type { PrismaService } from '../../prisma/prisma.service';
 
 /** Forma mínima del argumento que recibe prisma.user.create en UserService.create */
 interface MockUserCreateArgs {
@@ -22,6 +22,7 @@ describe('UserService', () => {
     email: 'juan@example.com',
     password: 'password123',
     dni: '12345678',
+    phone: '1122334455',
   };
 
   const mockUserCreate = jest.fn<Promise<any>, [MockUserCreateArgs]>();
@@ -73,18 +74,22 @@ describe('UserService', () => {
       expect(mockProfileCreate).not.toHaveBeenCalled();
     });
 
-    it('convierte un P2002 de Prisma en UserAlreadyExistsException (409)', async () => {
+    it('convierte un P2002 de Prisma en ConflictException (409)', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed on the fields: (`email`)',
-        { code: 'P2002', clientVersion: Prisma.prismaVersion.client },
+        {
+          code: 'P2002',
+          clientVersion: Prisma.prismaVersion.client,
+          meta: { target: ['email'] },
+        },
       );
       mockUserCreate.mockRejectedValue(prismaError);
 
       const promise = userService.create(dto);
 
-      await expect(promise).rejects.toThrow(UserAlreadyExistsException);
+      await expect(promise).rejects.toThrow(ConflictException);
       await expect(promise).rejects.toThrow(
-        'Ya existe un usuario con el email juan@example.com',
+        'Ya existe un usuario con el email "juan@example.com"',
       );
       await expect(promise).rejects.toMatchObject({ status: 409 });
       expect(mockProfileCreate).not.toHaveBeenCalled();
