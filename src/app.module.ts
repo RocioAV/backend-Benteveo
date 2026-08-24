@@ -3,8 +3,8 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from './modules/users/user.module';
 import { AuthModule } from './modules/auth/auth.module';
-// import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-// import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthGuard } from './common/guards/auth.guard';
@@ -46,15 +46,15 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
   // controllers: [WebhookController],
   providers: [
     // Filtros globales
-    // {
-    //   provide: APP_FILTER,
-    //   useClass: HttpExceptionFilter,
-    // },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
     // Filtro para errores de Prisma
-    // {
-    //   provide: APP_FILTER,
-    //   useClass: PrismaClientExceptionFilter,
-    // },
+    {
+      provide: APP_FILTER,
+      useClass: PrismaExceptionFilter,
+    },
     // Pipes globales
     // Transformar y validar automáticamente los DTOs.
     {
