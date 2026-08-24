@@ -16,6 +16,8 @@ import { CreateReservationDto } from './dto/create-reservation.dto';
 import { FindReservationsDto } from './dto/find-reservations.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/admin.types';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('reservations')
 export class ReservationsController {
@@ -44,8 +46,11 @@ export class ReservationsController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.reservationsService.findOne(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reservationsService.findOne(id, user);
   }
 
   @Patch(':id/confirm')

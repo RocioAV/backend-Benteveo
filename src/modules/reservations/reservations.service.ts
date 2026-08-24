@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
-import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { FindReservationsDto } from './dto/find-reservations.dto';
 import {
   ReservationNotFoundException,
@@ -13,6 +13,21 @@ import {
   InvalidReservationStatusException,
   ForbiddenReservationException,
 } from '../../common/exceptions/reservation-exceptions';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+
+/**
+ * Campos seguros del usuario que se incluyen en las respuestas de reservas.
+ * Nunca se expone `password`.
+ */
+const SAFE_USER_SELECT = Prisma.validator<Prisma.UserSelect>()({
+  id: true,
+  name: true,
+  email: true,
+  dni: true,
+  role: true,
+  isIdentityVerified: true,
+  profile: true,
+});
 
 @Injectable()
 export class ReservationsService {
@@ -25,6 +40,10 @@ export class ReservationsService {
 
     if (!product) {
       throw new ProductNotFoundException(dto.productId);
+    }
+
+    if (product.ownerId === userId) {
+      throw new ForbiddenException('No puedes reservar tu propio producto');
     }
 
     if (!product.isAvailable) {
@@ -68,7 +87,7 @@ export class ReservationsService {
       },
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
   }
@@ -90,7 +109,7 @@ export class ReservationsService {
       where,
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -115,33 +134,35 @@ export class ReservationsService {
       },
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findOne(id: string) {
-    const reservation = await this.prisma.reservation.findUnique({
-      where: { id },
-      include: {
-        product: true,
-        user: true,
-      },
-    });
+  async findOne(id: string, user: AuthenticatedUser) {
+    const reservation = await this.getReservationOrThrow(id);
 
-    if (!reservation) {
-      throw new ReservationNotFoundException(id);
+    const isRenter = reservation.userId === user.sub;
+    const isOwner = reservation.product.ownerId === user.sub;
+    const isAdmin = user.role === 'ADMIN';
+
+    if (!isRenter && !isOwner && !isAdmin) {
+      throw new ForbiddenReservationException(
+        'No tenés permiso para ver esta reserva',
+      );
     }
 
     return reservation;
   }
 
   async confirm(id: string, ownerId: string) {
-    const reservation = await this.findOne(id);
+    const reservation = await this.getReservationOrThrow(id);
 
     if (reservation.product.ownerId !== ownerId) {
-      throw new ForbiddenReservationException('No tenés permiso para confirmar esta reserva');
+      throw new ForbiddenReservationException(
+        'No tenés permiso para confirmar esta reserva',
+      );
     }
 
     if (reservation.status !== 'PENDING') {
@@ -155,19 +176,21 @@ export class ReservationsService {
       data: { status: 'CONFIRMED' },
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
   }
 
   async cancel(id: string, userId: string) {
-    const reservation = await this.findOne(id);
+    const reservation = await this.getReservationOrThrow(id);
 
     const isOwner = reservation.product.ownerId === userId;
     const isRenter = reservation.userId === userId;
 
     if (!isOwner && !isRenter) {
-      throw new ForbiddenReservationException('No tenés permiso para cancelar esta reserva');
+      throw new ForbiddenReservationException(
+        'No tenés permiso para cancelar esta reserva',
+      );
     }
 
     if (reservation.status === 'CANCELLED') {
@@ -185,16 +208,18 @@ export class ReservationsService {
       data: { status: 'CANCELLED' },
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
   }
 
   async handoff(id: string, ownerId: string, notes?: string) {
-    const reservation = await this.findOne(id);
+    const reservation = await this.getReservationOrThrow(id);
 
     if (reservation.product.ownerId !== ownerId) {
-      throw new ForbiddenReservationException('No tenés permiso para entregar esta reserva');
+      throw new ForbiddenReservationException(
+        'No tenés permiso para entregar esta reserva',
+      );
     }
 
     if (reservation.status !== 'CONFIRMED') {
@@ -212,16 +237,18 @@ export class ReservationsService {
       },
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
   }
 
   async returnProduct(id: string, ownerId: string) {
-    const reservation = await this.findOne(id);
+    const reservation = await this.getReservationOrThrow(id);
 
     if (reservation.product.ownerId !== ownerId) {
-      throw new ForbiddenReservationException('No tenés permiso para recibir esta reserva');
+      throw new ForbiddenReservationException(
+        'No tenés permiso para recibir esta reserva',
+      );
     }
 
     if (reservation.status !== 'ACTIVE') {
@@ -238,9 +265,25 @@ export class ReservationsService {
       },
       include: {
         product: true,
-        user: true,
+        user: { select: SAFE_USER_SELECT },
       },
     });
+  }
+
+  private async getReservationOrThrow(id: string) {
+    const reservation = await this.prisma.reservation.findUnique({
+      where: { id },
+      include: {
+        product: true,
+        user: { select: SAFE_USER_SELECT },
+      },
+    });
+
+    if (!reservation) {
+      throw new ReservationNotFoundException(id);
+    }
+
+    return reservation;
   }
 
   private async checkDateConflict(
