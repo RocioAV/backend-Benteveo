@@ -3,7 +3,8 @@ import { UserService } from './user.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/admin.types';
 import { Public } from '../../common/decorators/public.decorator';
-import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('user')
 export class UserController {

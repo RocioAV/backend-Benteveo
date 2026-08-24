@@ -1,7 +1,8 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { AuthGuard } from '../../common/guards/auth.guard';
-import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('profile')
 export class ProfileController {
