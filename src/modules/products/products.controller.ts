@@ -21,14 +21,19 @@ import { ImageFileValidator } from '../../common/validators/image-file.validator
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  create(@Body() dto: CreateProductDto): Promise<Product> {
-    return this.productsService.create(dto);
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateProductDto,
+  ): Promise<Product> {
+    return this.productsService.create(dto, user.sub);
   }
 
   @Get()
@@ -45,15 +50,11 @@ export class ProductsController {
 
   @Patch(':id')
   update(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateProductDto,
   ): Promise<Product> {
-    return this.productsService.update(id, dto);
-  }
-
-  @Patch(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<Product> {
-    return this.productsService.remove(id);
+    return this.productsService.update(id, dto, user.sub, user.role);
   }
 
   @Post(':id/photos')
@@ -72,6 +73,7 @@ export class ProductsController {
   })
   @ApiParam({ name: 'id', type: String })
   uploadPhotos(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFiles(
       new ParseFilePipe({
@@ -97,14 +99,23 @@ export class ProductsController {
     )
     files: Express.Multer.File[],
   ): Promise<PhotoProduct[]> {
-    return this.productsService.uploadPhotos(id, files);
+    return this.productsService.uploadPhotos(id, files, user.sub, user.role);
   }
 
   @Delete('photos')
   @ApiQuery({ name: 'publicId', type: String })
   deletePhoto(
+    @CurrentUser() user: AuthenticatedUser,
     @Query('publicId') publicId: string,
   ): Promise<{ message: string }> {
-    return this.productsService.deletePhoto(publicId);
+    return this.productsService.deletePhoto(publicId, user.sub, user.role);
+  }
+
+  @Delete(':id')
+  remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<Product> {
+    return this.productsService.remove(id, user.sub, user.role);
   }
 }

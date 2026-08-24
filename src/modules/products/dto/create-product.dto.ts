@@ -10,10 +10,6 @@ import {
 export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
-  ownerId!: string;
-
-  @IsString()
-  @IsNotEmpty()
   title!: string;
 
   @IsString()
