@@ -2,6 +2,9 @@ import { User as UserModel } from '@prisma/client'
 
 export type User = UserModel;
 
+/** Usuario sin la contraseña (para cualquier respuesta HTTP). */
+export type PublicUser = Omit<User, 'password'>;
+
 export enum Role {
   USER = 'USER',
   ADMIN = 'ADMIN',

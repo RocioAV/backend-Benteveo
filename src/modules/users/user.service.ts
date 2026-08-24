@@ -1,22 +1,20 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 // import { UpdateUserDto } from './dto/update-user.dto';
-import { User} from '../../common/types/user.types';
+import { PublicUser } from '../../common/types/user.types';
 import {
   UserNotFoundException,
-  UserAlreadyExistsException,
   // AdminAlreadyExistsException,
 } from '../../common/exceptions/user-exceptions';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client'; 
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-// import { equals } from 'class-validator';
 
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto): Promise<PublicUser> {
     try {
       const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
@@ -28,15 +26,16 @@ export class UserService {
           role: createUserDto.role ?? 'USER',
           profile: {
             create: {
-              description: 'BIOGRAFIA TEMPORAL', 
+              description: 'BIOGRAFIA TEMPORAL',
               phone: createUserDto.phone,
             },
           },
-          dni: createUserDto.dni,  
+          dni: createUserDto.dni,
         },
+        omit: { password: true },
       });
 
-      return newUser as User;
+      return newUser as PublicUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -48,7 +47,9 @@ export class UserService {
           if (target.includes('dni')) {
             fieldMessages.push(`el DNI "${createUserDto.dni}"`);
           }
-          throw new ConflictException(`Ya existe un usuario con ${fieldMessages.join(' y ')}`);
+          throw new ConflictException(
+            `Ya existe un usuario con ${fieldMessages.join(' y ')}`,
+          );
         }
       }
       throw error;
@@ -64,30 +65,29 @@ export class UserService {
   async findAll() {
     return await this.prisma.user.findMany({
       where: { isDeleted: false },
+      omit: { password: true },
     });
   }
-  
 
   async getUserWithProfile(userId: string) {
-  const user = await this.prisma.user.findFirst({
-    where: { id: userId, isDeleted: false },
-    include: {
-      profile: true 
-    }
-  });
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, isDeleted: false },
+      omit: { password: true },
+      include: {
+        profile: true,
+      },
+    });
 
- if (!user) return null;
+    if (!user) return null;
 
-  const { password, ...result } = user;
+    return user;
+  }
 
-  return result;
-}
-
-
-  async findOne(id: string): Promise<User> {
+  async findOne(id: string): Promise<PublicUser> {
     const user = await this.prisma.user.findFirst({
       where: { id, isDeleted: false },
-      include: { 
+      omit: { password: true },
+      include: {
         profile: true,
       },
     });
@@ -96,18 +96,40 @@ export class UserService {
       throw new UserNotFoundException(id);
     }
 
-    return user as User;
+    return user as PublicUser;
   }
-  
 
-  async remove(id: string): Promise<User> {
+  /** Perfil público de un usuario: sin email, DNI ni contraseña. */
+  async findPublicProfile(id: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, isDeleted: false },
+      select: {
+        id: true,
+        name: true,
+        role: true,
+        isIdentityVerified: true,
+        createdAt: true,
+        updatedAt: true,
+        profile: true,
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(id);
+    }
+
+    return user;
+  }
+
+  async remove(id: string): Promise<PublicUser> {
     try {
       const deletedUser = await this.prisma.user.update({
         where: { id },
         data: { isDeleted: true },
+        omit: { password: true },
       });
 
-      return deletedUser as User;
+      return deletedUser as PublicUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {

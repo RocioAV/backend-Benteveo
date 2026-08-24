@@ -10,7 +10,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
-  @Public()
+  @Roles(Role.ADMIN)
   async findAll() {
     return await this.userService.findAll();
   }
@@ -29,7 +29,7 @@ export class UserController {
   @Get(':id')
   @Public()
   async findOne(@Param('id') id: string) {
-    return await this.userService.findOne(id);
+    return await this.userService.findPublicProfile(id);
   }
 
   @Patch('delete')
