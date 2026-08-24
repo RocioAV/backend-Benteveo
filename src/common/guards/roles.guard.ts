@@ -24,17 +24,11 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
 
-    console.log('--- DEBUG ROLES GUARD ---');
-    console.log('1. Roles que pide el endpoint:', requiredRoles);
-    console.log('2. ID del Usuario:', user?.id || user?.sub);
-    console.log('3. Roles que tiene el usuario:', user?.roles);
-    console.log('-----------------------------');
-
     if (!user) {
       throw new ForbiddenException('Usuario no autenticado');
     }
 
-    const hasRole = requiredRoles.some((role) => user.roles?.includes(role));
+    const hasRole = requiredRoles.includes(user.role);
 
     if (!hasRole) {
       throw new ForbiddenException(
@@ -45,4 +39,3 @@ export class RolesGuard implements CanActivate {
     return true;
   }
 }
-

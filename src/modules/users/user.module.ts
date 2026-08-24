@@ -1,7 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { UserService } from './user.service'; 
 import { UserController } from './user.controller';
-import { RequestIdMiddleware } from '../common/middleware/request-id.middleware';
+import { RequestIdMiddleware } from '../../common/middleware/request-id.middleware';
 import { ConfigModule } from '@nestjs/config'
 
 @Module({

@@ -6,13 +6,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  ADMIN
-  USER
-  MODERATOR
-}
-
-
 model User {
   id          String       @id @default(uuid())
   name      String
@@ -27,7 +20,8 @@ model User {
   // RELACIONES INVERSAS (Prisma las necesita para saber que un usuario tiene muchos productos y reservas)
   products   Product[]
   reservations   Reservation[]
-  roles Json @default("[\"USER\"]")
+  role String @default("USER")
+  isDeleted Boolean @default(false)
   profile Profile?
 }
 
@@ -50,18 +44,28 @@ model Product {
   city           String
   state          String
   address        String
-  urlPhoto       String
   deposit       Float
   category      String
   ownerId String
 
   isAvailable     Boolean       @default(true)
+  isDeleted       Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   // RELACIONES
   owner      User   @relation(fields: [ownerId], references: [id])
   reservations       Reservation[] // Un producto puede tener muchas reservas anotadas
+  photos     PhotoProduct[] // Un producto puede tener muchas fotos
+}
+
+model PhotoProduct {
+  id        String @id @default(uuid())
+  url       String
+  publicId  String
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Reservation {

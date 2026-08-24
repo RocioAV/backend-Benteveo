@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "baseUrl": "./",
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     },
     "module": "nodenext",
@@ -28,7 +27,8 @@
     "noFallthroughCasesInSwitch": false,
     "types": [
       "jest",
-      "node"
+      "node",
+      "multer"
     ]
   }
 }

@@ -1,14 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 // import { UpdateUserDto } from './dto/update-user.dto';
-import { User} from '../common/types/user.types';
-import { Role } from '../common/types/admin.types';
+import { User} from '../../common/types/user.types';
 import {
   UserNotFoundException,
   UserAlreadyExistsException,
   // AdminAlreadyExistsException,
-} from '../common/exceptions/user-exceptions';
-import { PrismaService } from '../prisma/prisma.service';
+} from '../../common/exceptions/user-exceptions';
+import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '@prisma/client'; 
 import * as bcrypt from 'bcryptjs';
 // import { equals } from 'class-validator';
@@ -26,22 +25,30 @@ export class UserService {
           email: createUserDto.email,
           password: hashedPassword,
           name: createUserDto.name,
-          roles: ['USER'],
+          role: createUserDto.role ?? 'USER',
           profile: {
             create: {
               description: 'BIOGRAFIA TEMPORAL', 
+              phone: createUserDto.phone,
             },
           },
           dni: createUserDto.dni,  
         },
       });
 
-      return { ...newUser, roles: newUser.roles as Role[] };
+      return newUser as User;
     } catch (error) {
-      // Manejar error de email duplicado
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new UserAlreadyExistsException(createUserDto.email!);
+          const target = (error.meta?.target as string[]) ?? [];
+          const fieldMessages: string[] = [];
+          if (target.includes('email')) {
+            fieldMessages.push(`el email "${createUserDto.email}"`);
+          }
+          if (target.includes('dni')) {
+            fieldMessages.push(`el DNI "${createUserDto.dni}"`);
+          }
+          throw new ConflictException(`Ya existe un usuario con ${fieldMessages.join(' y ')}`);
         }
       }
       throw error;
@@ -49,20 +56,21 @@ export class UserService {
   }
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
-      where: { email },
+    return this.prisma.user.findFirst({
+      where: { email, isDeleted: false },
     });
   }
 
   async findAll() {
-    const users = await this.prisma.user.findMany();
-    return users.map((user) => ({ ...user, roles: user.roles as Role[] }));
+    return await this.prisma.user.findMany({
+      where: { isDeleted: false },
+    });
   }
   
 
   async getUserWithProfile(userId: string) {
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
+  const user = await this.prisma.user.findFirst({
+    where: { id: userId, isDeleted: false },
     include: {
       profile: true 
     }
@@ -77,15 +85,10 @@ export class UserService {
 
 
   async findOne(id: string): Promise<User> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const user = await this.prisma.user.findFirst({
+      where: { id, isDeleted: false },
       include: { 
         profile: true,
-        //   _count: { 
-        //   select: { 
-        //      reservations: 
-        //    } 
-        // }
       },
     });
 
@@ -93,17 +96,18 @@ export class UserService {
       throw new UserNotFoundException(id);
     }
 
-    return { ...user, roles: user.roles as Role[] };
+    return user as User;
   }
   
 
   async remove(id: string): Promise<User> {
     try {
-      const deletedUser = await this.prisma.user.delete({
+      const deletedUser = await this.prisma.user.update({
         where: { id },
+        data: { isDeleted: true },
       });
 
-      return { ...deletedUser, roles: deletedUser.roles as Role[] };
+      return deletedUser as User;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
