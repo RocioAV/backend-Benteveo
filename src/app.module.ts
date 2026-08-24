@@ -27,7 +27,9 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
       useFactory: async (configService: ConfigService) => ({
         global: true,
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '1d' },
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN') ?? '60m',
+        },
       }),
     }),
     UserModule,
