@@ -1,6 +1,7 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { AuthGuard } from '../../common/guards/auth.guard';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('profile')
 export class ProfileController {
@@ -8,8 +9,7 @@ export class ProfileController {
 
   @Get() 
   @UseGuards(AuthGuard)
-  async getMyProfile(@Req() req: any) {
-    const userId = req.user.sub || req.user.id;
-    return await this.profileService.findByUserId(userId);
+  async getMyProfile(@CurrentUser() user: AuthenticatedUser) {
+    return await this.profileService.findByUserId(user.sub);
   }
 }

@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Delete, UsePipes, ValidationPipe, HttpCode, HttpStatus, Req, Patch } from '@nestjs/common';
+import { Controller, Get, Param, UsePipes, ValidationPipe, HttpCode, HttpStatus, Patch } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/admin.types';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('user')
 export class UserController {
@@ -15,15 +16,14 @@ export class UserController {
   }
 
   @Get('profile')
-  async getProfile(@Req() req: any) {
-    const userId = req.user.sub;
-    return await this.userService.findOne(userId);
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
+    return await this.userService.findOne(user.sub);
   }
 
   @Get('data-user')
   @HttpCode(HttpStatus.OK)
-  async getMyProfile(@Req() req: any) {
-    return this.userService.getUserWithProfile(req.user.sub);
+  async getMyProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.userService.getUserWithProfile(user.sub);
   }
 
   @Get(':id')
@@ -36,8 +36,7 @@ export class UserController {
   @Roles(Role.ADMIN, Role.MODERATOR, Role.USER)
   @UsePipes(new ValidationPipe())
   @HttpCode(HttpStatus.OK)
-  async remove(@Req() req: any) {
-    const idUser = req.user.sub;
-    return await this.userService.remove(idUser);
+  async remove(@CurrentUser() user: AuthenticatedUser) {
+    return await this.userService.remove(user.sub);
   }
 }
