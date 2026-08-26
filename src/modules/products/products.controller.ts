@@ -22,6 +22,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { KycRequired } from '../../common/decorators/kyc.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('products')
@@ -29,6 +30,7 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
+  @KycRequired()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateProductDto,

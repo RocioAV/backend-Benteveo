@@ -17,6 +17,7 @@ import { FindReservationsDto } from './dto/find-reservations.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/user.types';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { KycRequired } from '../../common/decorators/kyc.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('reservations')
@@ -24,6 +25,7 @@ export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
 
   @Post()
+  @KycRequired()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateReservationDto, @Req() req: any) {
     return this.reservationsService.create(dto, req.user.sub);
