@@ -87,6 +87,18 @@ describe('UserService', () => {
       expect(mockProfileCreate).not.toHaveBeenCalled();
     });
 
+    it('fuerza role USER ignorando cualquier rol del payload', async () => {
+      mockUserCreate.mockImplementation(({ data }) =>
+        Promise.resolve({ id: 'user-1', role: data.role }),
+      );
+
+      const malicious = { ...dto, role: 'ADMIN' } as CreateUserDto;
+
+      await userService.create(malicious);
+
+      expect(mockUserCreate.mock.calls[0][0].data.role).toBe('USER');
+    });
+
     it('convierte un P2002 de Prisma en ConflictException (409)', async () => {
       const prismaError = new Prisma.PrismaClientKnownRequestError(
         'Unique constraint failed on the fields: (`email`)',
@@ -177,31 +189,55 @@ describe('UserService', () => {
   });
 
   describe('findPublicProfile', () => {
-    it('selecciona solo campos públicos (sin email, DNI ni password)', async () => {
+    it('devuelve el perfil público mínimo sin phone/email/dni/password/role', async () => {
       mockUserFindFirst.mockResolvedValue({
         id: 'u1',
         name: 'A',
-        role: 'USER',
-        isIdentityVerified: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        profile: {},
+        isIdentityVerified: true,
+        profile: { avatar: 'https://cdn/a.png' },
       });
 
       const result = await userService.findPublicProfile('u1');
 
-      expect(result.email).toBeUndefined();
-      expect(result.dni).toBeUndefined();
-      expect(result.password).toBeUndefined();
-      expect(mockUserFindFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          select: expect.objectContaining({
-            id: true,
-            name: true,
-            role: true,
-            profile: true,
-          }),
-        }),
+      expect(result).toEqual({
+        id: 'u1',
+        name: 'A',
+        avatar: 'https://cdn/a.png',
+        isIdentityVerified: true,
+      });
+      expect(result).not.toHaveProperty('phone');
+      expect(result).not.toHaveProperty('email');
+      expect(result).not.toHaveProperty('dni');
+      expect(result).not.toHaveProperty('password');
+      expect(result).not.toHaveProperty('role');
+    });
+
+    it('selecciona profile con solo avatar (sin fuga de phone)', async () => {
+      mockUserFindFirst.mockResolvedValue({
+        id: 'u1',
+        name: 'A',
+        isIdentityVerified: false,
+        profile: { avatar: null },
+      });
+
+      await userService.findPublicProfile('u1');
+
+      expect(mockUserFindFirst).toHaveBeenCalledWith({
+        where: { id: 'u1', isDeleted: false },
+        select: {
+          id: true,
+          name: true,
+          isIdentityVerified: true,
+          profile: { select: { avatar: true } },
+        },
+      });
+    });
+
+    it('lanza UserNotFoundException si no existe', async () => {
+      mockUserFindFirst.mockResolvedValue(null);
+
+      await expect(userService.findPublicProfile('nope')).rejects.toThrow(
+        UserNotFoundException,
       );
     });
   });

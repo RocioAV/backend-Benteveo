@@ -2,6 +2,8 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 // import { UpdateUserDto } from './dto/update-user.dto';
 import { PublicUser } from '../../common/types/user.types';
+import { Role } from '../../common/types/user.types';
+import { toPublicProfile, PublicProfileDto } from './dto/public-user.dto';
 import {
   UserNotFoundException,
   // AdminAlreadyExistsException,
@@ -23,7 +25,7 @@ export class UserService {
           email: createUserDto.email,
           password: hashedPassword,
           name: createUserDto.name,
-          role: createUserDto.role ?? 'USER',
+          role: Role.USER,
           profile: {
             create: {
               description: 'BIOGRAFIA TEMPORAL',
@@ -99,18 +101,15 @@ export class UserService {
     return user as PublicUser;
   }
 
-  /** Perfil público de un usuario: sin email, DNI ni contraseña. */
-  async findPublicProfile(id: string) {
+  /** Perfil público de un usuario: sin email, DNI, phone ni contraseña. */
+  async findPublicProfile(id: string): Promise<PublicProfileDto> {
     const user = await this.prisma.user.findFirst({
       where: { id, isDeleted: false },
       select: {
         id: true,
         name: true,
-        role: true,
         isIdentityVerified: true,
-        createdAt: true,
-        updatedAt: true,
-        profile: true,
+        profile: { select: { avatar: true } },
       },
     });
 
@@ -118,7 +117,7 @@ export class UserService {
       throw new UserNotFoundException(id);
     }
 
-    return user;
+    return toPublicProfile(user);
   }
 
   async remove(id: string): Promise<PublicUser> {
