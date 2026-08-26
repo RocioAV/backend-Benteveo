@@ -63,31 +63,40 @@ export class ReservationsService {
       );
     }
 
-    const hasConflict = await this.checkDateConflict(
-      dto.productId,
-      dateInit,
-      dateEnd,
+    // Transacción serializable: check + create atómicos
+    return this.prisma.$transaction(
+      async (tx) => {
+        const conflict = await tx.reservation.findFirst({
+          where: {
+            productId: dto.productId,
+            status: { in: ['PENDING', 'CONFIRMED', 'ACTIVE'] },
+            dateInit: { lt: dateEnd },
+            dateEnd: { gt: dateInit },
+          },
+        });
+
+        if (conflict) {
+          throw new ReservationConflictException(
+            'Las fechas solicitadas se superponen con otra reserva existente',
+          );
+        }
+
+        return tx.reservation.create({
+          data: {
+            dateInit,
+            dateEnd,
+            status: 'PENDING',
+            productId: dto.productId,
+            userId,
+          },
+          include: {
+            product: true,
+            user: { select: SAFE_USER_SELECT },
+          },
+        });
+      },
+      { isolationLevel: 'Serializable' },
     );
-
-    if (hasConflict) {
-      throw new ReservationConflictException(
-        'Las fechas solicitadas se superponen con otra reserva existente',
-      );
-    }
-
-    return this.prisma.reservation.create({
-      data: {
-        dateInit,
-        dateEnd,
-        status: 'PENDING',
-        productId: dto.productId,
-        userId,
-      },
-      include: {
-        product: true,
-        user: { select: SAFE_USER_SELECT },
-      },
-    });
   }
 
   async findAll(filters: FindReservationsDto) {
@@ -282,22 +291,5 @@ export class ReservationsService {
     }
 
     return reservation;
-  }
-
-  private async checkDateConflict(
-    productId: string,
-    dateInit: Date,
-    dateEnd: Date,
-  ): Promise<boolean> {
-    const conflict = await this.prisma.reservation.findFirst({
-      where: {
-        productId,
-        status: { in: ['PENDING', 'CONFIRMED', 'ACTIVE'] },
-        dateInit: { lt: dateEnd },
-        dateEnd: { gt: dateInit },
-      },
-    });
-
-    return !!conflict;
   }
 }

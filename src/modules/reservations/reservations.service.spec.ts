@@ -51,6 +51,7 @@ describe('ReservationsService', () => {
   const mockReservationFindUnique = jest.fn<Promise<any>, [any]>();
   const mockReservationFindFirst = jest.fn<Promise<any>, [any]>();
   const mockReservationUpdate = jest.fn<Promise<any>, [any]>();
+  const mockTransaction = jest.fn<Promise<any>, [any, any?]>();
 
   const mockPrisma = {
     product: { findFirst: mockProductFindFirst },
@@ -61,6 +62,7 @@ describe('ReservationsService', () => {
       findFirst: mockReservationFindFirst,
       update: mockReservationUpdate,
     },
+    $transaction: mockTransaction,
   } as unknown as PrismaService;
 
   const service = new ReservationsService(mockPrisma);
@@ -78,6 +80,16 @@ describe('ReservationsService', () => {
     mockReservationCreate.mockImplementation((args) =>
       Promise.resolve({ id: 'res-1', ...args.data }),
     );
+    // Mock $transaction: ejecuta el callback con un tx que delega a los mocks
+    mockTransaction.mockImplementation(async (callback: any) => {
+      const tx = {
+        reservation: {
+          findFirst: mockReservationFindFirst,
+          create: mockReservationCreate,
+        },
+      };
+      return callback(tx);
+    });
   });
 
   describe('create (Fix 1 + Fix 5)', () => {
@@ -101,6 +113,50 @@ describe('ReservationsService', () => {
         'No puedes reservar tu propio producto',
       );
       expect(mockReservationCreate).not.toHaveBeenCalled();
+    });
+
+    it('usa transacción serializable', async () => {
+      await service.create(dto, 'renter-1');
+
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
+      expect(mockTransaction).toHaveBeenCalledWith(
+        expect.any(Function),
+        { isolationLevel: 'Serializable' },
+      );
+    });
+
+    it('lanza conflicto si las fechas se superponen', async () => {
+      mockReservationFindFirst.mockResolvedValue({ id: 'conflict-1' });
+
+      const promise = service.create(dto, 'renter-1');
+
+      await expect(promise).rejects.toThrow('Las fechas solicitadas se superponen');
+    });
+
+    it('rechaza dateInit >= dateEnd sin ejecutar transacción', async () => {
+      const badDto: CreateReservationDto = {
+        productId: 'prod-1',
+        dateInit: new Date(Date.now() + 172800000).toISOString(),
+        dateEnd: new Date(Date.now() + 86400000).toISOString(),
+      };
+
+      const promise = service.create(badDto, 'renter-1');
+
+      await expect(promise).rejects.toThrow('La fecha de inicio debe ser anterior');
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it('rechaza dateInit en el pasado sin ejecutar transacción', async () => {
+      const pastDto: CreateReservationDto = {
+        productId: 'prod-1',
+        dateInit: new Date(Date.now() - 86400000).toISOString(),
+        dateEnd: new Date(Date.now() + 86400000).toISOString(),
+      };
+
+      const promise = service.create(pastDto, 'renter-1');
+
+      await expect(promise).rejects.toThrow('La fecha de inicio no puede ser en el pasado');
+      expect(mockTransaction).not.toHaveBeenCalled();
     });
   });
 
