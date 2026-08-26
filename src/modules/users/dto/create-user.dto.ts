@@ -1,4 +1,4 @@
-import { Role } from '../../../common/types/admin.types'
+import { Role } from '../../../common/types/user.types'
 import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateUserDto{

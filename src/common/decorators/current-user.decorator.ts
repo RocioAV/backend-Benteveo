@@ -1,11 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import type { AuthenticatedUser } from '../types/user.types';
 
-/** Forma del usuario autenticado inyectado por el AuthGuard (payload JWT). */
-export interface AuthenticatedUser {
-  sub: string;
-  email: string;
-  role: string;
-}
+export type { AuthenticatedUser };
 
 /**
  * Factoría extraída para poder testearla de forma aislada.
@@ -14,7 +10,7 @@ export interface AuthenticatedUser {
 export function getCurrentUser(
   data: keyof AuthenticatedUser | undefined,
   ctx: ExecutionContext,
-): AuthenticatedUser | string | undefined {
+): AuthenticatedUser | string | boolean | undefined {
   const request = ctx.switchToHttp().getRequest();
   const user = request?.user as AuthenticatedUser | undefined;
   return data ? user?.[data] : user;

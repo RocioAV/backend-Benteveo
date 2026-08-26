@@ -14,6 +14,7 @@ import {
   ForbiddenReservationException,
 } from '../../common/exceptions/reservation-exceptions';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { Role } from '../../common/types/user.types';
 
 /**
  * Campos seguros del usuario que se incluyen en las respuestas de reservas.
@@ -145,7 +146,7 @@ export class ReservationsService {
 
     const isRenter = reservation.userId === user.sub;
     const isOwner = reservation.product.ownerId === user.sub;
-    const isAdmin = user.role === 'ADMIN';
+    const isAdmin = user.role === Role.ADMIN;
 
     if (!isRenter && !isOwner && !isAdmin) {
       throw new ForbiddenReservationException(

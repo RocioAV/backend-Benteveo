@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UsePipes, ValidationPipe, HttpCode, HttpStatus, Patch } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/types/admin.types';
+import { Role } from '../../common/types/user.types';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -34,7 +34,7 @@ export class UserController {
   }
 
   @Patch('delete')
-  @Roles(Role.ADMIN, Role.MODERATOR, Role.USER)
+  @Roles(Role.ADMIN, Role.USER)
   @UsePipes(new ValidationPipe())
   @HttpCode(HttpStatus.OK)
   async remove(@CurrentUser() user: AuthenticatedUser) {

@@ -7,6 +7,7 @@ import {
 } from '../../common/exceptions/reservation-exceptions';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { Role } from '../../common/types/user.types';
 
 const SAFE_USER_FIELDS = [
   'id',
@@ -130,22 +131,22 @@ describe('ReservationsService', () => {
     const renter: AuthenticatedUser = {
       sub: 'renter-1',
       email: 'r@example.com',
-      role: 'USER',
+      role: Role.USER,
     };
     const owner: AuthenticatedUser = {
       sub: 'owner-1',
       email: 'o@example.com',
-      role: 'USER',
+      role: Role.USER,
     };
     const stranger: AuthenticatedUser = {
       sub: 'stranger-1',
       email: 's@example.com',
-      role: 'USER',
+      role: Role.USER,
     };
     const admin: AuthenticatedUser = {
       sub: 'admin-1',
       email: 'a@example.com',
-      role: 'ADMIN',
+      role: Role.ADMIN,
     };
 
     it('permite leer al renter (reservation.userId === user.sub)', async () => {

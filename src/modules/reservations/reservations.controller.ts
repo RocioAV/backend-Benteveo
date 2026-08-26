@@ -15,7 +15,7 @@ import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { FindReservationsDto } from './dto/find-reservations.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/types/admin.types';
+import { Role } from '../../common/types/user.types';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 

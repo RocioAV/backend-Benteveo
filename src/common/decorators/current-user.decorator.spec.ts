@@ -1,8 +1,9 @@
 import { ExecutionContext } from '@nestjs/common';
 import { getCurrentUser } from './current-user.decorator';
+import { Role } from '../types/user.types';
 
 describe('CurrentUser decorator', () => {
-  const user = { sub: 'user-1', email: 'juan@example.com', role: 'USER' };
+  const user = { sub: 'user-1', email: 'juan@example.com', role: Role.USER };
 
   const ctx = {
     switchToHttp: () => ({ getRequest: () => ({ user }) }),
