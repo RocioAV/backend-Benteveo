@@ -18,16 +18,13 @@ import { Role } from '../../common/types/user.types';
 
 /**
  * Campos seguros del usuario que se incluyen en las respuestas de reservas.
- * Nunca se expone `password`.
+ * Nunca se expone `password`, `email`, `dni` ni `phone`.
  */
 const SAFE_USER_SELECT = Prisma.validator<Prisma.UserSelect>()({
   id: true,
   name: true,
-  email: true,
-  dni: true,
-  role: true,
   isIdentityVerified: true,
-  profile: true,
+  profile: { select: { avatar: true } },
 });
 
 @Injectable()

@@ -9,24 +9,23 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Role } from '../../common/types/user.types';
 
-const SAFE_USER_FIELDS = [
-  'id',
-  'name',
-  'email',
-  'dni',
-  'role',
-  'isIdentityVerified',
-  'profile',
-];
+const SAFE_USER_FIELDS = ['id', 'name', 'isIdentityVerified'];
+const FORBIDDEN_USER_FIELDS = ['email', 'dni', 'role', 'password', 'phone'];
 
-/** Afirma que un include de prisma usa `user: { select: ... }` seguro (sin password). */
+/** Afirma que un include de prisma usa `user: { select: ... }` seguro (sin email, DNI, role ni phone). */
 function expectSafeUserInclude(include: any) {
   expect(include.user).not.toEqual(true);
   expect(include.user.select).toBeDefined();
-  expect(include.user.select.password).toBeUndefined();
+
   for (const field of SAFE_USER_FIELDS) {
     expect(include.user.select[field]).toBe(true);
   }
+  for (const field of FORBIDDEN_USER_FIELDS) {
+    expect(include.user.select[field]).toBeUndefined();
+  }
+
+  // El perfil se reduce a avatar: no debe fugar phone.
+  expect(include.user.select.profile).toEqual({ select: { avatar: true } });
 }
 
 const product = {
