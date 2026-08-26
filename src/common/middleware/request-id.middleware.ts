@@ -1,17 +1,26 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 
+/**
+ * Middleware global idempotente de requestId.
+ *
+ * Adopta el `X-Request-Id` entrante si viene, o genera un uuid v4 si no.
+ * Refleja el id en el header de respuesta y lo deja disponible en el request
+ * para que el `HttpExceptionFilter` lo propague al body de error. Sin PII.
+ */
 @Injectable()
 export class RequestIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
-    const requestId = uuidv4();
-    req.headers['x-request-id'] = requestId;
-    res.setHeader('X-Request-ID', requestId); 
+    const incoming = req.headers['x-request-id'];
+    const requestId =
+      typeof incoming === 'string' && incoming.trim().length > 0
+        ? incoming
+        : randomUUID();
 
-    console.log(
-      `🔍 Request ID: ${requestId} - ${req.method} ${req.originalUrl}`,
-    );
+    req.headers['x-request-id'] = requestId;
+    res.setHeader('X-Request-ID', requestId);
+
     next();
   }
 }
