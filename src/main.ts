@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { setupSwagger } from './swagger';
 
@@ -18,6 +19,9 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
+
+  // Parsea cookies entrantes (`req.cookies`) para la sesión HttpOnly + CSRF.
+  app.use(cookieParser());
 
   app.setGlobalPrefix('api/v1');
 
