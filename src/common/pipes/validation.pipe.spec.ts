@@ -1,6 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
 import { IsEmail, IsString } from 'class-validator';
 import { ValidationPipe } from './validation.pipe';
+import { AppException } from '../exceptions/app.exception';
+import { ErrorCode } from '../constants/error-codes';
 
 class TestDto {
   @IsString()
@@ -10,16 +12,23 @@ class TestDto {
   email!: string;
 }
 
-describe('ValidationPipe (whitelist + forbidNonWhitelisted)', () => {
+describe('ValidationPipe (whitelist + forbidNonWhitelisted + contrato de error)', () => {
   const pipe = new ValidationPipe();
 
-  it('rechaza campos no declarados en el DTO (forbidNonWhitelisted)', async () => {
+  it('rechaza campos no declarados con 422 VALIDATION_FAILED y fields por campo', async () => {
     const promise = pipe.transform(
       { name: 'Ana', email: 'ana@example.com', isAdmin: true },
       { type: 'body', metatype: TestDto },
     );
 
-    await expect(promise).rejects.toBeInstanceOf(BadRequestException);
+    await expect(promise).rejects.toBeInstanceOf(AppException);
+    await expect(promise).rejects.toMatchObject({
+      status: 422,
+      code: ErrorCode.VALIDATION_FAILED,
+    });
+    await expect(promise).rejects.toMatchObject({
+      fields: expect.objectContaining({ isAdmin: expect.any(String) }),
+    });
   });
 
   it('transforma el payload válido a una instancia del DTO', async () => {
@@ -42,12 +51,19 @@ describe('ValidationPipe (whitelist + forbidNonWhitelisted)', () => {
     expect(result).toBe('valor-crudo');
   });
 
-  it('valida las reglas del DTO (p.ej. email inválido rechaza)', async () => {
+  it('devuelve fields estructurado por campo para email inválido', async () => {
     const promise = pipe.transform(
       { name: 'Ana', email: 'no-es-un-email' },
       { type: 'body', metatype: TestDto },
     );
 
-    await expect(promise).rejects.toBeInstanceOf(BadRequestException);
+    await expect(promise).rejects.toBeInstanceOf(AppException);
+    await expect(promise).rejects.toMatchObject({
+      status: HttpStatus.UNPROCESSABLE_ENTITY,
+      code: ErrorCode.VALIDATION_FAILED,
+      fields: expect.objectContaining({
+        email: expect.stringContaining('email'),
+      }),
+    });
   });
 });
