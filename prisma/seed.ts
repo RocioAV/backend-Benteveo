@@ -36,24 +36,7 @@ async function main() {
   const adapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter });
 
-  // 1. Usuario admin (idempotente)
-  const adminEmail = 'admin@benteveo.com';
-  const admin = await prisma.user.upsert({
-    where: { email: adminEmail },
-    update: {},
-    create: {
-      name: 'Admin Benteveo',
-      email: adminEmail,
-      password: await bcrypt.hash('Admin1234!', 10),
-      dni: '00000000',
-      isIdentityVerified: true,
-      role: 'ADMIN',
-      profile: { create: { phone: '+5491100000000', description: 'Administrador del sistema' } },
-    },
-  });
-  console.log(`✓ Admin listo: ${adminEmail}`);
-
-  // 2. Propietaria demo (dueña de los productos)
+  // 1. Propietaria demo (dueña de los productos)
   const ownerEmail = 'propietaria@benteveo.com';
   const owner = await prisma.user.upsert({
     where: { email: ownerEmail },
@@ -70,7 +53,7 @@ async function main() {
   });
   console.log(`✓ Propietaria listo: ${ownerEmail}`);
 
-  // 3. Productos (idempotente: no re-crea si ya hay)
+  // 2. Productos (idempotente: no re-crea si ya hay)
   const productCount = await prisma.product.count();
   if (productCount > 0) {
     console.log(`→ Ya existen ${productCount} productos; se saltea el seed de productos.`);
