@@ -10,6 +10,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthGuard } from './common/guards/auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { KycGuard } from './common/guards/kyc.guard';
+import { CsrfGuard } from './common/guards/csrf.guard';
 import { JwtModule } from '@nestjs/jwt';
 // import { NoteModule } from './note/note.module';
 import { ProfileModule } from './modules/profile/profile.module';
@@ -66,6 +67,10 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: CsrfGuard,
     },
     {
       provide: APP_GUARD,
