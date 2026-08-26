@@ -16,3 +16,17 @@ export class InvalidCredentialsException extends AppException {
     );
   }
 }
+
+/**
+ * Token CSRF inválido/ausente en una escritura autenticada por cookie.
+ * El CsrfGuard exige `header === cookie === claim.csrf` (doble submit firmado).
+ */
+export class CsrfTokenInvalidException extends AppException {
+  constructor() {
+    super(
+      ErrorCode.CSRF_TOKEN_INVALID,
+      'Token CSRF inválido',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
