@@ -9,7 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SESSION_COOKIE_NAME } from '../constants/cookies';
-import type { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../types/user.types';
 
 /**
