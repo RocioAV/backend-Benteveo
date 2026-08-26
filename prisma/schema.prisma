@@ -6,6 +6,20 @@ datasource db {
   provider = "postgresql"
 }
 
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  CANCELLED
+  COMPLETED
+}
+
 model User {
   id          String       @id @default(uuid())
   name      String
@@ -20,9 +34,12 @@ model User {
   // RELACIONES INVERSAS (Prisma las necesita para saber que un usuario tiene muchos productos y reservas)
   products   Product[]
   reservations   Reservation[]
-  role String @default("USER")
+  role Role @default(USER)
   isDeleted Boolean @default(false)
   profile Profile?
+  
+  @@index([role])
+  @@index([isDeleted])
 }
 
 model Profile {
@@ -38,13 +55,13 @@ model Product {
   id             String       @id @default(uuid())  
   title          String     
   descripcion    String    @db.Text 
-  priceDay      Float
-  priceMonth    Float
+  priceDay      Decimal @db.Decimal(10,2)
+  priceMonth    Decimal @db.Decimal(10,2)
   zone           String
   city           String
   state          String
   address        String
-  deposit       Float
+  deposit       Decimal @db.Decimal(10,2)
   category      String
   ownerId String
 
@@ -57,6 +74,11 @@ model Product {
   owner      User   @relation(fields: [ownerId], references: [id])
   reservations       Reservation[] // Un producto puede tener muchas reservas anotadas
   photos     PhotoProduct[] // Un producto puede tener muchas fotos
+
+  @@index([ownerId])
+  @@index([category])
+  @@index([city])
+  @@index([isDeleted])
 }
 
 model PhotoProduct {
@@ -72,13 +94,16 @@ model Reservation {
   id          String       @id @default(uuid())
   dateInit DateTime 
   dateEnd    DateTime
-  status      String
+  status      ReservationStatus @default(PENDING)
 
   actualHandoffAt  DateTime?
   actualReturnAt   DateTime?
   handoffNotes     String?  @db.Text
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  
+  cancellationConfirmedAt DateTime?
+  paymentReceivedAt        DateTime?
 
   productId String
   userId String
@@ -86,4 +111,9 @@ model Reservation {
   // RELACIONES
   product    Product @relation(fields: [productId], references: [id])
   user     User  @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+  @@index([dateInit])
 }
