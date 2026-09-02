@@ -16,7 +16,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { ProfileModule } from './modules/profile/profile.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
-import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
+import { VerificationModule } from './modules/verification/verification.module';
 
 @Module({
   imports: [
@@ -27,11 +28,14 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
       global: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ??
-            '60m') as `${number}s` | `${number}m` | `${number}h` | `${number}d`,
+          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ?? '60m') as
+            | `${number}s`
+            | `${number}m`
+            | `${number}h`
+            | `${number}d`,
         },
       }),
     }),
@@ -43,6 +47,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     ProductsModule,
     ReservationsModule,
     CloudinaryModule,
+    VerificationModule,
     // StripeModule,
     // SubscriptionModule,
   ],

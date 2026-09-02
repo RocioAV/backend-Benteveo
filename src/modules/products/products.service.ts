@@ -1,7 +1,11 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PhotoProduct, Product } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CloudinaryService } from '../../cloudinary/cloudinary.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -41,13 +45,23 @@ export class ProductsService {
     role: string,
   ): Promise<Product> {
     const product = await this.findOne(id);
-    this.assertOwner(product, userId, role, 'No tenés permiso para editar este producto');
+    this.assertOwner(
+      product,
+      userId,
+      role,
+      'No tenés permiso para editar este producto',
+    );
     return this.prisma.product.update({ where: { id }, data: dto });
   }
 
   async remove(id: string, userId: string, role: string): Promise<Product> {
     const product = await this.findOne(id);
-    this.assertOwner(product, userId, role, 'No tenés permiso para eliminar este producto');
+    this.assertOwner(
+      product,
+      userId,
+      role,
+      'No tenés permiso para eliminar este producto',
+    );
     return this.prisma.product.update({
       where: { id },
       data: { isDeleted: true },
@@ -61,7 +75,12 @@ export class ProductsService {
     role: string,
   ): Promise<PhotoProduct[]> {
     const product = await this.findOne(productId);
-    this.assertOwner(product, userId, role, 'No tenés permiso para subir fotos a este producto');
+    this.assertOwner(
+      product,
+      userId,
+      role,
+      'No tenés permiso para subir fotos a este producto',
+    );
 
     return Promise.all(
       files.map(async (file) => {
@@ -94,7 +113,12 @@ export class ProductsService {
     }
 
     const product = await this.findOne(photo.productId);
-    this.assertOwner(product, userId, role, 'No tenés permiso para eliminar fotos de este producto');
+    this.assertOwner(
+      product,
+      userId,
+      role,
+      'No tenés permiso para eliminar fotos de este producto',
+    );
 
     await this.cloudinaryService.deleteImage(publicId);
     await this.prisma.photoProduct.delete({ where: { id: photo.id } });

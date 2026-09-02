@@ -1,7 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import type { PrismaService } from '../../prisma/prisma.service';
-import type { CloudinaryService } from '../../cloudinary/cloudinary.service';
+import type { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 const ownedProduct = {
   id: 'prod-1',

@@ -5,7 +5,6 @@ import './cloudinary.config';
 
 @Injectable()
 export class CloudinaryService {
-  
   async uploadImage(
     file: Express.Multer.File,
     options: { folder?: string } = {},
@@ -22,7 +21,9 @@ export class CloudinaryService {
         },
         (error, result) => {
           if (error || !result) {
-            reject(new BadRequestException('Error al subir la imagen a Cloudinary'));
+            reject(
+              new BadRequestException('Error al subir la imagen a Cloudinary'),
+            );
           } else {
             resolve(result);
           }
@@ -38,7 +39,9 @@ export class CloudinaryService {
     }
     const result = await cloudinary.uploader.destroy(publicId);
     if (result.result !== 'ok') {
-      throw new BadRequestException(`No se pudo eliminar la imagen ${publicId}`);
+      throw new BadRequestException(
+        `No se pudo eliminar la imagen ${publicId}`,
+      );
     }
   }
 }
