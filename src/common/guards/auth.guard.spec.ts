@@ -140,6 +140,7 @@ describe('AuthGuard', () => {
       email: 'fresh@b.com',
       role: 'ADMIN',
       isIdentityVerified: true,
+      csrf: 'csrf-nonce',
     });
   });
 

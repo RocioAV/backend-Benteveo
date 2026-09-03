@@ -77,7 +77,10 @@ export class AuthGuard implements CanActivate {
       email: dbUser.email,
       role: dbUser.role as AuthenticatedUser['role'],
       isIdentityVerified: dbUser.isIdentityVerified,
-    } satisfies AuthenticatedUser;
+      // El claim `csrf` del JWT debe viajar en `request.user` para que el
+      // CsrfGuard valide el triple double-submit (header === cookie === claim).
+      csrf: payload.csrf,
+    } satisfies AuthenticatedUser & { csrf: string };
 
     return true;
   }
