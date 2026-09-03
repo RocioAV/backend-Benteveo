@@ -22,7 +22,11 @@ export class CloudinaryService {
         (error, result) => {
           if (error || !result) {
             reject(
-              new BadRequestException('Error al subir la imagen a Cloudinary'),
+              new BadRequestException(
+                `Error al subir la imagen a Cloudinary: ${
+                  error?.message ?? 'sin detalles del error'
+                }`,
+              ),
             );
           } else {
             resolve(result);
