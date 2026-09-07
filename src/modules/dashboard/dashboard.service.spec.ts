@@ -37,14 +37,28 @@ describe('DashboardService', () => {
     });
   });
 
-  it('busca los prestamos de productos pertenecientes al usuario sin filtrar por estado', async () => {
+  it('busca los prestamos sin exponer datos privados del usuario', async () => {
     reservationFindMany.mockResolvedValue([]);
 
     await service.findMyLoans('user-id');
 
     expect(reservationFindMany).toHaveBeenCalledWith({
       where: { product: { ownerId: 'user-id' } },
-      include: { product: true, user: true },
+      include: {
+        product: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            isIdentityVerified: true,
+            profile: {
+              select: {
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   });

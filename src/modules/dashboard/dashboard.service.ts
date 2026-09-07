@@ -37,7 +37,18 @@ export class DashboardService {
       },
       include: {
         product: true,
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            isIdentityVerified: true,
+            profile: {
+              select: {
+                avatar: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

@@ -1,22 +1,23 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
-
-@Controller()
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+@Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
-  @Get('mis-publicaciones')
-  findMyPublications(@Req() req: any) {
-    return this.dashboardService.findMyPublications(req.user.sub);
+  @Get('publications')
+  findMyPublications(@CurrentUser() user: AuthenticatedUser) {
+    return this.dashboardService.findMyPublications(user.sub);
   }
 
-  @Get('mis-alquileres')
-  findMyRentals(@Req() req: any) {
-    return this.dashboardService.findMyRentals(req.user.sub);
+  @Get('rentals')
+  findMyRentals(@CurrentUser() user: AuthenticatedUser) {
+    return this.dashboardService.findMyRentals(user.sub);
   }
 
-  @Get('mis-prestamos')
-  findMyLoans(@Req() req: any) {
-    return this.dashboardService.findMyLoans(req.user.sub);
+  @Get('loans')
+  findMyLoans(@CurrentUser() user: AuthenticatedUser) {
+    return this.dashboardService.findMyLoans(user.sub);
   }
 }
