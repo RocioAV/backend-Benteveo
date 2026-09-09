@@ -1,10 +1,8 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
   Param,
-  ParseFilePipe,
   ParseUUIDPipe,
   Post,
   UploadedFiles,
@@ -18,7 +16,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/user.types';
-import { ImageFileValidator } from '../../common/validators/image-file.validator';
 
 @Controller('verification')
 export class VerificationController {
@@ -45,28 +42,7 @@ export class VerificationController {
   })
   submit(
     @CurrentUser() user: AuthenticatedUser,
-    @UploadedFiles(
-      new ParseFilePipe({
-        fileIsRequired: true,
-        validators: [
-          new ImageFileValidator({
-            allowedMimeTypes: [
-              'image/jpeg',
-              'image/jpg',
-              'image/png',
-              'image/webp',
-            ],
-          }),
-        ],
-        exceptionFactory: (error) => {
-          const message =
-            error === 'File is required'
-              ? 'Debes adjuntar las imágenes frontal, dorsal y selfie'
-              : error;
-          return new BadRequestException(message);
-        },
-      }),
-    )
+    @UploadedFiles()
     files: {
       front?: Express.Multer.File[];
       back?: Express.Multer.File[];

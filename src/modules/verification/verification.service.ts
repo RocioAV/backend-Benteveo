@@ -7,6 +7,7 @@ import {
 import { VerificationRequest, VerificationStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { ImageFileValidator } from '../../common/validators/image-file.validator';
 
 export interface KycFiles {
   front?: Express.Multer.File[];
@@ -185,6 +186,15 @@ export class VerificationService {
       throw new BadRequestException(
         'Debes adjuntar las imágenes frontal, dorsal y selfie',
       );
+    }
+    const validator = new ImageFileValidator({
+      allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+    });
+    for (const key of ['front', 'back', 'selfie'] as const) {
+      const file = files[key]?.[0];
+      if (file && !validator.isValid(file)) {
+        throw new BadRequestException(validator.buildErrorMessage());
+      }
     }
   }
 }
