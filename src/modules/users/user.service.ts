@@ -44,13 +44,15 @@ export class UserService {
           const target = (error.meta?.target as string[]) ?? [];
           const fieldMessages: string[] = [];
           if (target.includes('email')) {
-            fieldMessages.push(`el email "${createUserDto.email}"`);
+            fieldMessages.push('el email');
           }
           if (target.includes('dni')) {
-            fieldMessages.push(`el DNI "${createUserDto.dni}"`);
+            fieldMessages.push('el DNI');
           }
+          const description =
+            fieldMessages.length > 0 ? fieldMessages.join(' y ') : 'esos datos';
           throw new ConflictException(
-            `Ya existe un usuario con ${fieldMessages.join(' y ')}`,
+            `Ya existe un usuario con ${description}`,
           );
         }
       }
@@ -61,6 +63,12 @@ export class UserService {
   async findByEmail(email: string) {
     return this.prisma.user.findFirst({
       where: { email, isDeleted: false },
+    });
+  }
+
+  async findByDni(dni: string) {
+    return this.prisma.user.findFirst({
+      where: { dni, isDeleted: false },
     });
   }
 

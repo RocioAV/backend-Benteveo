@@ -111,6 +111,11 @@ export class AuthService{
         throw new ConflictException('El email ya está en uso');
       }
 
+      const dniTaken = await this.userService.findByDni(signUpDto.dni);
+      if (dniTaken) {
+        throw new ConflictException('El DNI ya está en uso');
+      }
+
       return this.userService.create(signUpDto);
   }
 }
