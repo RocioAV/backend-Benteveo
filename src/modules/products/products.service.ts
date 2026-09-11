@@ -30,7 +30,13 @@ export class ProductsService {
   async findOne(id: string): Promise<Product> {
     const product = await this.prisma.product.findFirst({
       where: { id, isDeleted: false },
-      include: { photos: true },
+      include: {
+        photos: true,
+        reservations: {
+          select: { dateInit: true, dateEnd: true, status: true },
+          where: { status: { notIn: ['CANCELLED'] } },
+        },
+      },
     });
     if (!product) {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
