@@ -258,32 +258,4 @@ describe('ReservationsService', () => {
     });
   });
 
-  describe('confirm (Fix 1)', () => {
-    it('usa user.select seguro en el update y valida ownership', async () => {
-      mockReservationFindUnique.mockResolvedValue({
-        ...reservation,
-        status: 'PENDING',
-      });
-      mockReservationUpdate.mockImplementation((args) =>
-        Promise.resolve({ id: 'res-1', status: 'CONFIRMED' }),
-      );
-
-      await service.confirm('res-1', 'owner-1');
-
-      const { include } = mockReservationUpdate.mock.calls[0][0];
-      expectSafeUserInclude(include);
-    });
-
-    it('rechaza confirmar si no es el dueño', async () => {
-      mockReservationFindUnique.mockResolvedValue({
-        ...reservation,
-        status: 'PENDING',
-      });
-
-      await expect(service.confirm('res-1', 'stranger-1')).rejects.toMatchObject(
-        { status: 403 },
-      );
-      expect(mockReservationUpdate).not.toHaveBeenCalled();
-    });
-  });
 });

@@ -78,6 +78,12 @@ export class ReservationsService {
       );
     }
 
+    // Calcular monto total: priceDay × días + depósito
+    const days = Math.ceil(
+      (dateEnd.getTime() - dateInit.getTime()) / 86_400_000,
+    );
+    const totalAmount =
+      product.priceDay.toNumber() * days + product.deposit.toNumber();
     // Transacción serializable: check + create atómicos
     return this.prisma.$transaction(
       async (tx) => {
@@ -96,19 +102,30 @@ export class ReservationsService {
           );
         }
 
-        return tx.reservation.create({
+        const reservation = await tx.reservation.create({
           data: {
             dateInit,
             dateEnd,
             status: 'PENDING',
             productId: dto.productId,
             userId,
+            totalAmount,
           },
           include: {
             product: true,
             user: { select: SAFE_USER_SELECT },
           },
         });
+
+        const payment = await tx.payment.create({
+          data: {
+            reservationId: reservation.id,
+            amount: totalAmount,
+            status: 'PENDING',
+          },
+        });
+
+        return { reservation, payment };
       },
       { isolationLevel: 'Serializable' },
     );
@@ -176,31 +193,6 @@ export class ReservationsService {
     }
 
     return reservation;
-  }
-
-  async confirm(id: string, ownerId: string) {
-    const reservation = await this.getReservationOrThrow(id);
-
-    if (reservation.product.ownerId !== ownerId) {
-      throw new ForbiddenReservationException(
-        'No tenés permiso para confirmar esta reserva',
-      );
-    }
-
-    if (reservation.status !== 'PENDING') {
-      throw new InvalidReservationStatusException(
-        'Solo se pueden confirmar reservas en estado PENDING',
-      );
-    }
-
-    return this.prisma.reservation.update({
-      where: { id },
-      data: { status: 'CONFIRMED' },
-      include: {
-        product: true,
-        user: { select: SAFE_USER_SELECT },
-      },
-    });
   }
 
   async cancel(id: string, userId: string) {

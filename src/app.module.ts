@@ -18,6 +18,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { ReservationsModule } from './modules/reservations/reservations.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { VerificationModule } from './modules/verification/verification.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { VerificationModule } from './modules/verification/verification.module';
     ReservationsModule,
     CloudinaryModule,
     VerificationModule,
+    PaymentsModule,
     // StripeModule,
     // SubscriptionModule,
   ],
