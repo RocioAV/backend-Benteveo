@@ -51,15 +51,30 @@ export class ReservationsService {
     const dateInit = new Date(dto.dateInit);
     const dateEnd = new Date(dto.dateEnd);
 
-    if (dateInit >= dateEnd) {
+    // Extraer solo la porción de fecha (sin hora) para comparaciones
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const initDate = new Date(dateInit.getFullYear(), dateInit.getMonth(), dateInit.getDate());
+    const endDate = new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate());
+
+    // La fecha fin debe ser posterior a la fecha inicio (misma fecha no permitida)
+    if (endDate <= initDate) {
       throw new InvalidReservationDatesException(
-        'La fecha de inicio debe ser anterior a la fecha de fin',
+        'La fecha de fin debe ser posterior a la fecha de inicio',
       );
     }
 
-    if (dateInit < new Date()) {
+    // La fecha inicio no puede ser en el pasado
+    if (initDate < today) {
       throw new InvalidReservationDatesException(
-        'La fecha de inicio no puede ser en el pasado',
+        'La fecha de inicio no puede ser anterior a la fecha actual',
+      );
+    }
+
+    // Si es el mismo día, debe ser antes de las 20:00
+    if (initDate.getTime() === today.getTime() && now.getHours() >= 20) {
+      throw new InvalidReservationDatesException(
+        'No se pueden hacer reservas para el mismo día después de las 20:00',
       );
     }
 
