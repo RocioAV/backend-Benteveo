@@ -55,11 +55,6 @@ export class ReservationsController {
     return this.reservationsService.findOne(id, user);
   }
 
-  @Patch(':id/confirm')
-  confirm(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.reservationsService.confirm(id, req.user.sub);
-  }
-
   @Patch(':id/cancel')
   cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.reservationsService.cancel(id, req.user.sub);
