@@ -20,7 +20,7 @@ export class CreateUserDto{
 
     @IsString({ message: 'El DNI debe ser una cadena de texto'})
     @IsNotEmpty( { message:'El DNI es obligatorio'})
-    @MinLength(8, {message: 'El DNI debe tener al menos 8 caracteres'})
+    @MinLength(7, {message: 'El DNI debe tener al menos 7 caracteres'})
     @MaxLength(20, {message: 'El DNI debe ser menos 20 caracteres'})
     dni!: string;
 

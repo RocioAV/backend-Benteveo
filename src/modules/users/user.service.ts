@@ -79,6 +79,30 @@ export class UserService {
     });
   }
 
+  async findByDniPublic(dni: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { dni, isDeleted: false },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        dni: true,
+        isIdentityVerified: true,
+        createdAt: true,
+      },
+    });
+    return user;
+  }
+
+  async findRecent(limit = 10) {
+    return this.prisma.user.findMany({
+      where: { isDeleted: false },
+      omit: { password: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
   async getUserWithProfile(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, isDeleted: false },

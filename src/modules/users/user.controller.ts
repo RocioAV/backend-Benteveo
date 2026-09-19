@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UsePipes, ValidationPipe, HttpCode, HttpStatus, Patch } from '@nestjs/common';
+import { Controller, Get, Param, Query, UsePipes, ValidationPipe, HttpCode, HttpStatus, Patch } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/user.types';
@@ -14,6 +14,19 @@ export class UserController {
   @Roles(Role.ADMIN)
   async findAll() {
     return await this.userService.findAll();
+  }
+
+  @Get('dni/:dni')
+  @Roles(Role.ADMIN)
+  async findByDni(@Param('dni') dni: string) {
+    return await this.userService.findByDniPublic(dni);
+  }
+
+  @Get('recent')
+  @Roles(Role.ADMIN)
+  async findRecent(@Query('limit') limit?: string) {
+    const n = limit ? parseInt(limit, 10) : 10;
+    return await this.userService.findRecent(n);
   }
 
   @Get('profile')

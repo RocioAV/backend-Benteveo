@@ -21,6 +21,8 @@ import { ImageFileValidator } from '../../common/validators/image-file.validator
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/types/user.types';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { KycRequired } from '../../common/decorators/kyc.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -42,6 +44,12 @@ export class ProductsController {
   @Public()
   findAll(): Promise<Product[]> {
     return this.productsService.findAll();
+  }
+
+  @Get('owner/:ownerId')
+  @Roles(Role.ADMIN)
+  findByOwner(@Param('ownerId') ownerId: string): Promise<Product[]> {
+    return this.productsService.findByOwner(ownerId);
   }
 
   @Get(':id')

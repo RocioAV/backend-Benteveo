@@ -27,6 +27,13 @@ export class ProductsService {
     });
   }
 
+  async findByOwner(ownerId: string): Promise<Product[]> {
+    return this.prisma.product.findMany({
+      where: { ownerId, isDeleted: false },
+      include: { photos: true },
+    });
+  }
+
   async findOne(id: string): Promise<Product> {
     const product = await this.prisma.product.findFirst({
       where: { id, isDeleted: false },
@@ -70,7 +77,7 @@ export class ProductsService {
     );
     return this.prisma.product.update({
       where: { id },
-      data: { isDeleted: true },
+      data: { isDeleted: true, isAvailable: false },
     });
   }
 
