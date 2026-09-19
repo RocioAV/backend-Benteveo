@@ -195,13 +195,14 @@ export class ReservationsService {
     return reservation;
   }
 
-  async cancel(id: string, userId: string) {
+  async cancel(id: string, userId: string, userRole?: Role) {
     const reservation = await this.getReservationOrThrow(id);
 
     const isOwner = reservation.product.ownerId === userId;
     const isRenter = reservation.userId === userId;
+    const isAdmin = userRole === Role.ADMIN;
 
-    if (!isOwner && !isRenter) {
+    if (!isOwner && !isRenter && !isAdmin) {
       throw new ForbiddenReservationException(
         'No tenés permiso para cancelar esta reserva',
       );

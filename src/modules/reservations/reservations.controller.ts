@@ -57,7 +57,7 @@ export class ReservationsController {
 
   @Patch(':id/cancel')
   cancel(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.reservationsService.cancel(id, req.user.sub);
+    return this.reservationsService.cancel(id, req.user.sub, req.user.role);
   }
 
   @Patch(':id/handoff')
