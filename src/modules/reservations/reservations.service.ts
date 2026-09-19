@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
@@ -29,9 +29,13 @@ const SAFE_USER_SELECT = Prisma.validator<Prisma.UserSelect>()({
 
 @Injectable()
 export class ReservationsService {
+  private readonly logger = new Logger('Reservations');
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateReservationDto, userId: string) {
+    this.logger.log('Creando reserva', { productId: dto.productId, userId });
+
     const product = await this.prisma.product.findFirst({
       where: { id: dto.productId, isDeleted: false },
     });
@@ -123,6 +127,14 @@ export class ReservationsService {
             amount: totalAmount,
             status: 'PENDING',
           },
+        });
+
+        this.logger.log('Reserva y pago creados', {
+          reservationId: reservation.id,
+          paymentId: payment.id,
+          productId: dto.productId,
+          userId,
+          totalAmount,
         });
 
         return { reservation, payment };
@@ -217,6 +229,8 @@ export class ReservationsService {
         'No se puede cancelar una reserva ya completada',
       );
     }
+
+    this.logger.log('Cancelando reserva', { reservationId: id, userId });
 
     return this.prisma.reservation.update({
       where: { id },

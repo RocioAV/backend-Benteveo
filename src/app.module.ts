@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UserModule } from './modules/users/user.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -19,6 +19,7 @@ import { ReservationsModule } from './modules/reservations/reservations.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 @Module({
   imports: [
@@ -82,6 +83,11 @@ import { PaymentsModule } from './modules/payments/payments.module';
     {
       provide: APP_GUARD,
       useClass: KycGuard,
+    },
+    // Interceptor global de logging
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
     },
   ],
 })

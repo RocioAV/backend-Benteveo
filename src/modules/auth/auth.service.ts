@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from "@nestjs/common";
+import { Injectable, ConflictException, Logger } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { randomUUID } from "node:crypto";
@@ -62,6 +62,8 @@ export function resolveSecureFlag(nodeEnv: string | undefined): boolean {
 
 @Injectable()
 export class AuthService{
+  private readonly logger = new Logger('Auth');
+
   constructor(
     private prisma: PrismaService,
     private userService: UserService,
@@ -70,6 +72,8 @@ export class AuthService{
   ) {}
 
   async signIn(email: string, pass: string): Promise<SignInResult> {
+    this.logger.log('Intento de login', { email });
+
     const user = await this.prisma.user.findUnique({
         where: { email },
     });
@@ -82,8 +86,11 @@ export class AuthService{
     );
 
     if (!user || user.isDeleted || !passwordMatches) {
+      this.logger.warn('Login fallido', { email });
       throw new InvalidCredentialsException();
     }
+
+    this.logger.log('Login exitoso', { userId: user.id, email });
 
     const csrfToken = randomUUID();
     const payload = {
@@ -106,16 +113,21 @@ export class AuthService{
   }
 
   async signUp(signUpDto: CreateUserDto) {
+      this.logger.log('Intento de registro', { email: signUpDto.email });
+
       const userExists = await this.userService.findByEmail(signUpDto.email);
       if (userExists) {
+        this.logger.warn('Registro fallido: email ya en uso', { email: signUpDto.email });
         throw new ConflictException('El email ya está en uso');
       }
 
       const dniTaken = await this.userService.findByDni(signUpDto.dni);
       if (dniTaken) {
+        this.logger.warn('Registro fallido: DNI ya en uso', { dni: signUpDto.dni });
         throw new ConflictException('El DNI ya está en uso');
       }
 
+      this.logger.log('Registro exitoso', { email: signUpDto.email });
       return this.userService.create(signUpDto);
   }
 }

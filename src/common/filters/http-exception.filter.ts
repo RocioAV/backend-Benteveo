@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
@@ -35,6 +36,8 @@ interface NormalizedError {
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger('Exceptions');
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -42,6 +45,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const normalized = normalizeException(exception);
     const requestId = resolveRequestId(request);
+
+    if (normalized.status >= 500) {
+      this.logger.error(
+        `${request.method} ${request.url} ${normalized.status} ${normalized.code}`,
+        exception instanceof Error ? exception.stack : undefined,
+        { requestId },
+      );
+    } else if (normalized.status >= 400) {
+      this.logger.warn(
+        `${request.method} ${request.url} ${normalized.status} ${normalized.code} ${normalized.message}`,
+        { requestId },
+      );
+    }
 
     const body: ErrorBody = {
       code: normalized.code,
