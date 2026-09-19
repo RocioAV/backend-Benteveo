@@ -119,14 +119,14 @@ export class VerificationService {
       frontUrl: string;
       backUrl: string;
       selfieUrl: string;
-      user: { email: string; name: string };
+      user: { email: string; name: string; dni: string };
     }>
   > {
     return this.prisma.verificationRequest.findMany({
       where: { status: VerificationStatus.PENDING },
       include: {
         user: {
-          select: { email: true, name: true },
+          select: { email: true, name: true, dni: true },
         },
       },
       orderBy: { createdAt: 'asc' },
