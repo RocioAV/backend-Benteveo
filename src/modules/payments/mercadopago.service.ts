@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,6 +7,7 @@ import type { PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class MercadoPagoService {
+  private readonly logger = new Logger('MercadoPago');
   private preference: Preference;
   private paymentClient: Payment;
 
@@ -22,6 +23,8 @@ export class MercadoPagoService {
   }
 
   async createPreference(paymentId: string) {
+    this.logger.log('Creando preferencia MercadoPago', { paymentId });
+
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -32,6 +35,7 @@ export class MercadoPagoService {
     });
 
     if (!payment) {
+      this.logger.warn('Pago no encontrado al crear preferencia', { paymentId });
       throw new PaymentNotFoundException(paymentId);
     }
 
@@ -61,6 +65,8 @@ export class MercadoPagoService {
 
     const response = await this.preference.create({ body: preferenceBody });
 
+    this.logger.log('Preferencia creada', { paymentId, preferenceId: response.id });
+
     await this.prisma.payment.update({
       where: { id: paymentId },
       data: { preferenceId: response.id },
@@ -78,6 +84,8 @@ export class MercadoPagoService {
     resource?: string;
     topic?: string;
   }) {
+    this.logger.log('Webhook recibido', { type: body.type, mpPaymentId: body.data?.id });
+
     if (body.type !== 'payment') {
       return { received: true };
     }
@@ -118,6 +126,8 @@ export class MercadoPagoService {
     const newStatus: PaymentStatus =
       statusMap[mpPayment.status ?? ''] ?? 'PENDING';
 
+    this.logger.log('Estado de pago actualizado', { paymentId, newStatus });
+
     await this.prisma.payment.update({
       where: { id: paymentId },
       data: {
@@ -129,6 +139,7 @@ export class MercadoPagoService {
     });
 
     if (newStatus === 'APPROVED') {
+      this.logger.log('Pago aprobado, confirmando reserva', { paymentId, reservationId: payment.reservationId });
       await this.prisma.reservation.update({
         where: { id: payment.reservationId },
         data: {
