@@ -21,3 +21,13 @@ export class PaymentAlreadyApprovedException extends AppException {
     );
   }
 }
+
+export class PaymentReversalException extends AppException {
+  constructor(paymentId: string, detail?: string) {
+    super(
+      ErrorCode.PAYMENT_REVERSAL_FAILED,
+      detail ?? `No se pudo revertir el pago ${paymentId} en Mercado Pago`,
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
+}
