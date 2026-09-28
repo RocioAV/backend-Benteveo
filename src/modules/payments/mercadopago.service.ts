@@ -66,12 +66,12 @@ export class MercadoPagoService {
         },
       ],
       back_urls: {
-        success: `${frontendUrl}/dashboard`,
+        success: `${frontendUrl}/pago-exitoso`,
         failure: `${frontendUrl}/pago-fallido`,
         pending: `${frontendUrl}/pago-pendiente`,
       },
       auto_return: 'approved' as const,
-      notification_url: `https://ba36-2800-810-599-14d6-d173-65f0-ca97-a2ec.ngrok-free.app/api/v1/payments/webhook`, //cambiar cuando se deploye
+      notification_url: `https://179e-2800-810-599-14d6-bcfd-9c76-7013-3fcc.ngrok-free.app/api/v1/payments/webhook`, //cambiar cuando se deploye
       external_reference: paymentId,
     };
 
@@ -254,6 +254,89 @@ export class MercadoPagoService {
       return { received: true };
     }
 
+    await this.applyMpPayment(payment, mpPayment);
+
+    return { received: true };
+  }
+
+  /**
+   * Sincroniza un pago local con su estado real en Mercado Pago.
+   *
+   * No depende del webhook: busca el pago por `mercadoPagoPaymentId` o por
+   * `external_reference` y aplica la misma lógica que el webhook (si estaba
+   * aprobado, la reserva pasa a CONFIRMED). Pensado para el retorno desde
+   * Mercado Pago cuando la notificación no llegó.
+   */
+  async syncPayment(paymentId: string) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      throw new PaymentNotFoundException(paymentId);
+    }
+
+    if (payment.status !== 'REFUNDED' && payment.status !== 'CANCELLED') {
+      const mpPayment = await this.fetchMpPayment(payment);
+      if (mpPayment) {
+        await this.applyMpPayment(payment, mpPayment);
+      } else {
+        this.logger.warn(
+          'No se encontró el pago en Mercado Pago al sincronizar',
+          {
+            paymentId: payment.id,
+            mpPaymentId: payment.mercadoPagoPaymentId,
+          },
+        );
+      }
+    }
+
+    return this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: { reservation: true },
+    });
+  }
+
+  private async fetchMpPayment(payment: {
+    id: string;
+    mercadoPagoPaymentId: string | null;
+  }): Promise<Awaited<ReturnType<Payment['get']>> | undefined> {
+    if (payment.mercadoPagoPaymentId) {
+      try {
+        return await this.paymentClient.get({
+          id: payment.mercadoPagoPaymentId,
+        });
+      } catch {
+        // fallback: búsqueda por external_reference
+      }
+    }
+
+    try {
+      const search = await this.paymentClient.search({
+        options: { external_reference: payment.id },
+      });
+      const found = search.results?.[0];
+      if (found?.id) {
+        return await this.paymentClient.get({ id: found.id });
+      }
+    } catch {
+      // mejor esfuerzo: el webhook sigue siendo la vía principal
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Aplica el estado de un pago de Mercado Pago al pago local y dispara los
+   * efectos sobre la reserva (aprobar → CONFIRMED, revertir → CANCELLED).
+   * Compartido por el webhook y por `syncPayment`.
+   */
+  private async applyMpPayment(
+    payment: { id: string; status: PaymentStatus; reservationId: string },
+    mpPayment: Awaited<ReturnType<Payment['get']>>,
+  ): Promise<PaymentStatus> {
+    const paymentId = payment.id;
+
     const statusMap: Record<string, PaymentStatus> = {
       approved: 'APPROVED',
       rejected: 'REJECTED',
@@ -274,7 +357,7 @@ export class MercadoPagoService {
         localStatus: payment.status,
         newStatus,
       });
-      return { received: true };
+      return payment.status;
     }
 
     this.logger.log('Estado de pago actualizado', { paymentId, newStatus });
@@ -330,6 +413,6 @@ export class MercadoPagoService {
       });
     }
 
-    return { received: true };
+    return newStatus;
   }
 }

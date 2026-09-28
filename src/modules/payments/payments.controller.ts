@@ -32,6 +32,12 @@ export class PaymentsController {
     return this.mercadopagoService.handleWebhook(body);
   }
 
+  @Post(':id/sync')
+  @HttpCode(HttpStatus.OK)
+  sync(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    return this.paymentsService.sync(id, req.user.sub);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
     return this.paymentsService.findOne(id, req.user.sub);
