@@ -1,10 +1,9 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
-import {
-  ForbiddenReservationException,
-  ProductNotFoundException,
-} from '../../common/exceptions/reservation-exceptions';
+import { ForbiddenReservationException } from '../../common/exceptions/reservation-exceptions';
+import { PaymentReversalException } from '../../common/exceptions/payment-exceptions';
+import type { MercadoPagoService } from '../payments/mercadopago.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Role } from '../../common/types/user.types';
@@ -52,6 +51,8 @@ describe('ReservationsService', () => {
   const mockReservationFindFirst = jest.fn<Promise<any>, [any]>();
   const mockReservationUpdate = jest.fn<Promise<any>, [any]>();
   const mockTransaction = jest.fn<Promise<any>, [any, any?]>();
+  const mockPaymentFindUnique = jest.fn<Promise<any>, [any]>();
+  const mockReversePayment = jest.fn<Promise<any>, [string]>();
 
   const mockPrisma = {
     product: { findFirst: mockProductFindFirst },
@@ -62,10 +63,15 @@ describe('ReservationsService', () => {
       findFirst: mockReservationFindFirst,
       update: mockReservationUpdate,
     },
+    payment: { findUnique: mockPaymentFindUnique },
     $transaction: mockTransaction,
   } as unknown as PrismaService;
 
-  const service = new ReservationsService(mockPrisma);
+  const mockMercadoPago = {
+    reversePayment: mockReversePayment,
+  } as unknown as MercadoPagoService;
+
+  const service = new ReservationsService(mockPrisma, mockMercadoPago);
 
   const dto: CreateReservationDto = {
     productId: 'prod-1',
@@ -119,10 +125,9 @@ describe('ReservationsService', () => {
       await service.create(dto, 'renter-1');
 
       expect(mockTransaction).toHaveBeenCalledTimes(1);
-      expect(mockTransaction).toHaveBeenCalledWith(
-        expect.any(Function),
-        { isolationLevel: 'Serializable' },
-      );
+      expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'Serializable',
+      });
     });
 
     it('lanza conflicto si las fechas se superponen', async () => {
@@ -130,7 +135,9 @@ describe('ReservationsService', () => {
 
       const promise = service.create(dto, 'renter-1');
 
-      await expect(promise).rejects.toThrow('Las fechas solicitadas se superponen');
+      await expect(promise).rejects.toThrow(
+        'Las fechas solicitadas se superponen',
+      );
     });
 
     it('rechaza dateInit >= dateEnd sin ejecutar transacción', async () => {
@@ -142,7 +149,9 @@ describe('ReservationsService', () => {
 
       const promise = service.create(badDto, 'renter-1');
 
-      await expect(promise).rejects.toThrow('La fecha de inicio debe ser anterior');
+      await expect(promise).rejects.toThrow(
+        'La fecha de inicio debe ser anterior',
+      );
       expect(mockTransaction).not.toHaveBeenCalled();
     });
 
@@ -155,7 +164,9 @@ describe('ReservationsService', () => {
 
       const promise = service.create(pastDto, 'renter-1');
 
-      await expect(promise).rejects.toThrow('La fecha de inicio no puede ser en el pasado');
+      await expect(promise).rejects.toThrow(
+        'La fecha de inicio no puede ser en el pasado',
+      );
       expect(mockTransaction).not.toHaveBeenCalled();
     });
   });
@@ -233,7 +244,9 @@ describe('ReservationsService', () => {
 
       const promise = service.findOne('res-1', stranger);
 
-      await expect(promise).rejects.toBeInstanceOf(ForbiddenReservationException);
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
       await expect(promise).rejects.toMatchObject({ status: 403 });
     });
 
@@ -258,4 +271,61 @@ describe('ReservationsService', () => {
     });
   });
 
+  describe('cancel (reverso Mercado Pago)', () => {
+    beforeEach(() => {
+      mockReservationFindUnique.mockResolvedValue(reservation);
+      mockPaymentFindUnique.mockResolvedValue({
+        id: 'pay-1',
+        reservationId: 'res-1',
+        status: 'APPROVED',
+        mercadoPagoPaymentId: 'mp-1',
+      });
+      mockReversePayment.mockResolvedValue('REFUNDED');
+      mockReservationUpdate.mockImplementation(
+        (args: { data: Record<string, unknown> }) =>
+          Promise.resolve({ ...reservation, ...args.data }),
+      );
+    });
+
+    it('revierte el pago en Mercado Pago antes de cancelar', async () => {
+      await service.cancel('res-1', 'renter-1', Role.USER);
+
+      expect(mockReversePayment).toHaveBeenCalledWith('pay-1');
+      expect(mockReversePayment.mock.invocationCallOrder[0]).toBeLessThan(
+        mockReservationUpdate.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('setea status CANCELLED y cancellationConfirmedAt', async () => {
+      await service.cancel('res-1', 'renter-1', Role.USER);
+
+      const updateArgs = mockReservationUpdate.mock.calls[0][0] as {
+        data: { status: string; cancellationConfirmedAt: unknown };
+        include: { payment: boolean };
+      };
+      expect(updateArgs.data.status).toBe('CANCELLED');
+      expect(updateArgs.data.cancellationConfirmedAt).toBeInstanceOf(Date);
+      expect(updateArgs.include.payment).toBe(true);
+    });
+
+    it('no cancela la reserva si el reverso en MP falla', async () => {
+      mockReversePayment.mockRejectedValue(
+        new PaymentReversalException('pay-1'),
+      );
+
+      const promise = service.cancel('res-1', 'renter-1', Role.USER);
+
+      await expect(promise).rejects.toBeInstanceOf(PaymentReversalException);
+      expect(mockReservationUpdate).not.toHaveBeenCalled();
+    });
+
+    it('cancela aunque la reserva no tenga pago asociado', async () => {
+      mockPaymentFindUnique.mockResolvedValue(null);
+
+      await service.cancel('res-1', 'renter-1', Role.USER);
+
+      expect(mockReversePayment).not.toHaveBeenCalled();
+      expect(mockReservationUpdate).toHaveBeenCalledTimes(1);
+    });
+  });
 });

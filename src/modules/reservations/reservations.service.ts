@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import type { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { FindReservationsDto } from './dto/find-reservations.dto';
@@ -15,6 +16,7 @@ import {
 } from '../../common/exceptions/reservation-exceptions';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Role } from '../../common/types/user.types';
+import { MercadoPagoService } from '../payments/mercadopago.service';
 
 /**
  * Campos seguros del usuario que se incluyen en las respuestas de reservas.
@@ -31,7 +33,10 @@ const SAFE_USER_SELECT = Prisma.validator<Prisma.UserSelect>()({
 export class ReservationsService {
   private readonly logger = new Logger('Reservations');
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mercadoPago: MercadoPagoService,
+  ) {}
 
   async create(dto: CreateReservationDto, userId: string) {
     this.logger.log('Creando reserva', { productId: dto.productId, userId });
@@ -58,8 +63,16 @@ export class ReservationsService {
     // Extraer solo la porción de fecha (sin hora) para comparaciones
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const initDate = new Date(dateInit.getFullYear(), dateInit.getMonth(), dateInit.getDate());
-    const endDate = new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate());
+    const initDate = new Date(
+      dateInit.getFullYear(),
+      dateInit.getMonth(),
+      dateInit.getDate(),
+    );
+    const endDate = new Date(
+      dateEnd.getFullYear(),
+      dateEnd.getMonth(),
+      dateEnd.getDate(),
+    );
 
     // La fecha fin debe ser posterior a la fecha inicio (misma fecha no permitida)
     if (endDate <= initDate) {
@@ -232,14 +245,38 @@ export class ReservationsService {
 
     this.logger.log('Cancelando reserva', { reservationId: id, userId });
 
-    return this.prisma.reservation.update({
+    const payment = await this.prisma.payment.findUnique({
+      where: { reservationId: id },
+    });
+
+    let paymentStatus: PaymentStatus | null = null;
+
+    if (payment) {
+      // Revierte en Mercado Pago primero: si falla, se lanza la excepción
+      // y la reserva NO se cancela (el usuario puede reintentar).
+      paymentStatus = await this.mercadoPago.reversePayment(payment.id);
+    }
+
+    const cancelledReservation = await this.prisma.reservation.update({
       where: { id },
-      data: { status: 'CANCELLED' },
+      data: {
+        status: 'CANCELLED',
+        cancellationConfirmedAt: new Date(),
+      },
       include: {
         product: true,
         user: { select: SAFE_USER_SELECT },
+        payment: true,
       },
     });
+
+    this.logger.log('Reserva cancelada', {
+      reservationId: id,
+      paymentId: payment?.id,
+      paymentStatus,
+    });
+
+    return cancelledReservation;
   }
 
   async handoff(id: string, ownerId: string, notes?: string) {
