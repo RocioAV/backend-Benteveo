@@ -1,5 +1,17 @@
-import { Controller, Get, Param, Query, UsePipes, ValidationPipe, HttpCode, HttpStatus, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Query,
+  UsePipes,
+  ValidationPipe,
+  HttpCode,
+  HttpStatus,
+  Patch,
+} from '@nestjs/common';
 import { UserService } from './user.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/types/user.types';
 import { Public } from '../../common/decorators/public.decorator';
@@ -38,6 +50,16 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   async getMyProfile(@CurrentUser() user: AuthenticatedUser) {
     return this.userService.getUserWithProfile(user.sub);
+  }
+
+  @Patch('data-user')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @HttpCode(HttpStatus.OK)
+  async updateMyProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.userService.updateMyProfile(user.sub, updateProfileDto);
   }
 
   @Get(':id')

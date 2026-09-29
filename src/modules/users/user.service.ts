@@ -1,5 +1,6 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 // import { UpdateUserDto } from './dto/update-user.dto';
 import { PublicUser } from '../../common/types/user.types';
 import { Role } from '../../common/types/user.types';
@@ -37,7 +38,7 @@ export class UserService {
         omit: { password: true },
       });
 
-      return newUser as PublicUser;
+      return newUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -117,6 +118,46 @@ export class UserService {
     return user;
   }
 
+  /**
+   * Actualización parcial del propio usuario: `name` vive en User y
+   * `phone`/`description` en Profile, escritos en una sola transacción.
+   * Profile.userId es único, así que se hace upsert para tolerar usuarios
+   * sin fila de perfil. Un body vacío no escribe nada.
+   */
+  async updateMyProfile(userId: string, dto: UpdateProfileDto) {
+    const { name, phone, description } = dto;
+
+    const shouldUpdateUser = name !== undefined;
+    const shouldUpdateProfile =
+      phone !== undefined || description !== undefined;
+
+    if (shouldUpdateUser || shouldUpdateProfile) {
+      await this.prisma.$transaction(async (tx) => {
+        if (shouldUpdateUser) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { name },
+          });
+        }
+
+        if (shouldUpdateProfile) {
+          const profileData = {
+            ...(phone !== undefined ? { phone } : {}),
+            ...(description !== undefined ? { description } : {}),
+          };
+
+          await tx.profile.upsert({
+            where: { userId },
+            update: profileData,
+            create: { userId, ...profileData },
+          });
+        }
+      });
+    }
+
+    return this.getUserWithProfile(userId);
+  }
+
   async findOne(id: string): Promise<PublicUser> {
     const user = await this.prisma.user.findFirst({
       where: { id, isDeleted: false },
@@ -130,7 +171,7 @@ export class UserService {
       throw new UserNotFoundException(id);
     }
 
-    return user as PublicUser;
+    return user;
   }
 
   /** Perfil público de un usuario: sin email, DNI, phone ni contraseña. */
@@ -160,7 +201,7 @@ export class UserService {
         omit: { password: true },
       });
 
-      return deletedUser as PublicUser;
+      return deletedUser;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2025') {
