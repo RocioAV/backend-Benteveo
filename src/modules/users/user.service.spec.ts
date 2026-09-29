@@ -91,7 +91,7 @@ describe('UserService', () => {
 
       // Se solicita a Prisma omitir la contraseña en la respuesta
       expect(omit).toEqual({ password: true });
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
 
       // El dueño único del Profile es el nested create; prisma.profile.create NO se llama aparte
       expect(data.profile).toBeDefined();
@@ -145,7 +145,7 @@ describe('UserService', () => {
         where: { isDeleted: false },
         omit: { password: true },
       });
-      expect(result[0].password).toBeUndefined();
+      expect(result[0]).not.toHaveProperty('password');
     });
   });
 
@@ -174,7 +174,7 @@ describe('UserService', () => {
 
       const result = await userService.findOne('u1');
 
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
   });
 
@@ -190,7 +190,7 @@ describe('UserService', () => {
 
       const result = await userService.getUserWithProfile('u1');
 
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
 
     it('devuelve null si no existe', async () => {
@@ -232,7 +232,7 @@ describe('UserService', () => {
         data: { name: 'Nuevo Nombre' },
       });
       expect(mockProfileUpsert).not.toHaveBeenCalled();
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
 
     it('upsertea Profile con create completo para usuarios sin fila de perfil', async () => {
@@ -273,7 +273,7 @@ describe('UserService', () => {
         omit: { password: true },
         include: { profile: true },
       });
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
 
     it('con name + phone escribe User y Profile en la misma transacción y responde con el estado actual', async () => {
@@ -368,7 +368,7 @@ describe('UserService', () => {
         data: { isDeleted: true },
         omit: { password: true },
       });
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
   });
 });
