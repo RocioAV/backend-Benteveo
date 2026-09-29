@@ -18,6 +18,13 @@ interface MockUserCreateArgs {
   omit?: { password?: boolean };
 }
 
+/** Forma mínima del argumento que recibe prisma.profile.upsert en UserService.updateMyProfile */
+interface MockProfileUpsertArgs {
+  where: { userId: string };
+  update: Record<string, unknown>;
+  create: Record<string, unknown>;
+}
+
 describe('UserService', () => {
   const dto: CreateUserDto = {
     name: 'Juan Perez',
@@ -32,6 +39,8 @@ describe('UserService', () => {
   const mockUserFindMany = jest.fn<Promise<any>, [any]>();
   const mockUserUpdate = jest.fn<Promise<any>, [any]>();
   const mockProfileCreate = jest.fn<Promise<any>, [any]>();
+  const mockProfileUpsert = jest.fn<Promise<any>, [MockProfileUpsertArgs]>();
+  const mockTransaction = jest.fn<Promise<any>, [any]>();
 
   const mockPrisma = {
     user: {
@@ -40,7 +49,8 @@ describe('UserService', () => {
       findMany: mockUserFindMany,
       update: mockUserUpdate,
     },
-    profile: { create: mockProfileCreate },
+    profile: { create: mockProfileCreate, upsert: mockProfileUpsert },
+    $transaction: mockTransaction,
   } as unknown as PrismaService;
 
   const userService = new UserService(mockPrisma);
@@ -51,6 +61,8 @@ describe('UserService', () => {
     mockUserFindMany.mockReset();
     mockUserUpdate.mockReset();
     mockProfileCreate.mockReset();
+    mockProfileUpsert.mockReset();
+    mockTransaction.mockReset();
   });
 
   describe('create', () => {
@@ -79,7 +91,7 @@ describe('UserService', () => {
 
       // Se solicita a Prisma omitir la contraseña en la respuesta
       expect(omit).toEqual({ password: true });
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
 
       // El dueño único del Profile es el nested create; prisma.profile.create NO se llama aparte
       expect(data.profile).toBeDefined();
@@ -133,7 +145,7 @@ describe('UserService', () => {
         where: { isDeleted: false },
         omit: { password: true },
       });
-      expect(result[0].password).toBeUndefined();
+      expect(result[0]).not.toHaveProperty('password');
     });
   });
 
@@ -162,7 +174,7 @@ describe('UserService', () => {
 
       const result = await userService.findOne('u1');
 
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
   });
 
@@ -178,13 +190,110 @@ describe('UserService', () => {
 
       const result = await userService.getUserWithProfile('u1');
 
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
 
     it('devuelve null si no existe', async () => {
       mockUserFindFirst.mockResolvedValue(null);
 
       await expect(userService.getUserWithProfile('nope')).resolves.toBeNull();
+    });
+  });
+
+  describe('updateMyProfile', () => {
+    // Cliente transaccional: delega en los mismos mocks del root
+    const tx = {
+      user: { update: mockUserUpdate },
+      profile: { upsert: mockProfileUpsert },
+    };
+
+    beforeEach(() => {
+      // Mock $transaction: ejecuta el callback con un tx que delega en los mocks
+      mockTransaction.mockImplementation(
+        (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+      );
+      mockUserFindFirst.mockResolvedValue({
+        id: 'u1',
+        name: 'A',
+        email: 'a@b.com',
+        role: 'USER',
+        profile: { phone: '1122334455', description: 'Bio previa' },
+      });
+    });
+
+    it('con solo name escribe únicamente User y no toca Profile', async () => {
+      const result = await userService.updateMyProfile('u1', {
+        name: 'Nuevo Nombre',
+      });
+
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
+      expect(mockUserUpdate).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { name: 'Nuevo Nombre' },
+      });
+      expect(mockProfileUpsert).not.toHaveBeenCalled();
+      expect(result).not.toHaveProperty('password');
+    });
+
+    it('upsertea Profile con create completo para usuarios sin fila de perfil', async () => {
+      await userService.updateMyProfile('u1', {
+        phone: '1122334455',
+        description: 'Descripción nueva',
+      });
+
+      expect(mockUserUpdate).not.toHaveBeenCalled();
+      expect(mockProfileUpsert).toHaveBeenCalledWith({
+        where: { userId: 'u1' },
+        update: { phone: '1122334455', description: 'Descripción nueva' },
+        create: {
+          userId: 'u1',
+          phone: '1122334455',
+          description: 'Descripción nueva',
+        },
+      });
+    });
+
+    it('con un solo campo de perfil solo incluye ese campo en update y create', async () => {
+      await userService.updateMyProfile('u1', { phone: '1122334455' });
+
+      const { update, create } = mockProfileUpsert.mock.calls[0][0];
+      expect(update).toEqual({ phone: '1122334455' });
+      expect(create).toEqual({ userId: 'u1', phone: '1122334455' });
+      expect(update).not.toHaveProperty('description');
+    });
+
+    it('body vacío: no abre transacción, no escribe nada y devuelve los datos actuales', async () => {
+      const result = await userService.updateMyProfile('u1', {});
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+      expect(mockUserUpdate).not.toHaveBeenCalled();
+      expect(mockProfileUpsert).not.toHaveBeenCalled();
+      expect(mockUserFindFirst).toHaveBeenCalledWith({
+        where: { id: 'u1', isDeleted: false },
+        omit: { password: true },
+        include: { profile: true },
+      });
+      expect(result).not.toHaveProperty('password');
+    });
+
+    it('con name + phone escribe User y Profile en la misma transacción y responde con el estado actual', async () => {
+      const result = await userService.updateMyProfile('u1', {
+        name: 'Nombre Nuevo',
+        phone: '5555555555',
+      });
+
+      expect(mockTransaction).toHaveBeenCalledTimes(1);
+      expect(mockUserUpdate).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { name: 'Nombre Nuevo' },
+      });
+      expect(mockProfileUpsert).toHaveBeenCalledWith({
+        where: { userId: 'u1' },
+        update: { phone: '5555555555' },
+        create: { userId: 'u1', phone: '5555555555' },
+      });
+      expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
+      expect(result).toHaveProperty('profile');
     });
   });
 
@@ -259,7 +368,7 @@ describe('UserService', () => {
         data: { isDeleted: true },
         omit: { password: true },
       });
-      expect(result.password).toBeUndefined();
+      expect(result).not.toHaveProperty('password');
     });
   });
 });
