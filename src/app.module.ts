@@ -19,6 +19,8 @@ import { ReservationsModule } from './modules/reservations/reservations.module';
 import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
 import { VerificationModule } from './modules/verification/verification.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 @Module({
@@ -34,10 +36,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
           expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ?? '60m') as
-            | `${number}s`
-            | `${number}m`
-            | `${number}h`
-            | `${number}d`,
+            `${number}s` | `${number}m` | `${number}h` | `${number}d`,
         },
       }),
     }),
@@ -51,6 +50,8 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     CloudinaryModule,
     VerificationModule,
     PaymentsModule,
+    FavoritesModule,
+    ReviewsModule,
     // StripeModule,
     // SubscriptionModule,
   ],
