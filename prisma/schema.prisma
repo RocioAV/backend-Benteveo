@@ -35,68 +35,70 @@ enum PaymentStatus {
 }
 
 model User {
-  id          String       @id @default(uuid())
-  name      String
-  email       String     @unique
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
   password String
-  dni         String     @unique
-  
-  isIdentityVerified Boolean       @default(false)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  dni      String @unique
+
+  isIdentityVerified Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // RELACIONES INVERSAS (Prisma las necesita para saber que un usuario tiene muchos productos y reservas)
-  products   Product[]
-  reservations   Reservation[]
-  role Role @default(USER)
-  isDeleted Boolean @default(false)
-  profile Profile?
+  products            Product[]
+  reservations        Reservation[]
+  role                Role                 @default(USER)
+  isDeleted           Boolean              @default(false)
+  profile             Profile?
   verificationRequest VerificationRequest?
-  favorites Favorite[]
-  ratings Rating[]
-  comments Comment[]
+  favorites           Favorite[]
+  ratings             Rating[]
+  comments            Comment[]
+  givenRatings        UserRating[]         @relation("UserRatingRater")
+  receivedRatings     UserRating[]         @relation("UserRatingRated")
 
   @@index([role])
   @@index([isDeleted])
 }
 
 model Profile {
-  id        String @id @default(uuid())
-  description       String?
-  avatar String?
-  phone  String?
-  userId String @unique
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String  @id @default(uuid())
+  description String?
+  avatar      String?
+  phone       String?
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Product {
-  id             String       @id @default(uuid())  
-  title          String     
-  descripcion    String    @db.Text 
-  priceDay      Decimal @db.Decimal(10,2)
-  priceMonth    Decimal @db.Decimal(10,2)
-  zone           String
-  city           String
-  state          String
-  address        String
-  deposit       Decimal @db.Decimal(10,2)
-  category      String
-  ownerId String
+  id          String  @id @default(uuid())
+  title       String
+  descripcion String  @db.Text
+  priceDay    Decimal @db.Decimal(10, 2)
+  priceMonth  Decimal @db.Decimal(10, 2)
+  zone        String
+  city        String
+  state       String
+  address     String
+  deposit     Decimal @db.Decimal(10, 2)
+  category    String
+  ownerId     String
 
-  isAvailable     Boolean       @default(true)
-  isDeleted       Boolean       @default(false)
-  rating          Float?
-  reviewCount     Int           @default(0)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  isAvailable Boolean  @default(true)
+  isDeleted   Boolean  @default(false)
+  rating      Float?
+  reviewCount Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // RELACIONES
-  owner      User   @relation(fields: [ownerId], references: [id])
-  reservations       Reservation[] // Un producto puede tener muchas reservas anotadas
-  photos     PhotoProduct[] // Un producto puede tener muchas fotos
-  favorites  Favorite[]
-  ratings    Rating[]
-  comments   Comment[]
+  owner        User           @relation(fields: [ownerId], references: [id])
+  reservations Reservation[] // Un producto puede tener muchas reservas anotadas
+  photos       PhotoProduct[] // Un producto puede tener muchas fotos
+  favorites    Favorite[]
+  ratings      Rating[]
+  comments     Comment[]
 
   @@index([ownerId])
   @@index([category])
@@ -105,37 +107,40 @@ model Product {
 }
 
 model PhotoProduct {
-  id        String @id @default(uuid())
-  url       String
-  publicId  String
+  id       String @id @default(uuid())
+  url      String
+  publicId String
 
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Reservation {
-  id          String       @id @default(uuid())
-  dateInit DateTime 
-  dateEnd    DateTime
+  id          String            @id @default(uuid())
+  dateInit    DateTime
+  dateEnd     DateTime
   status      ReservationStatus @default(PENDING)
-  totalAmount Decimal? @db.Decimal(10,2)
+  totalAmount Decimal?          @db.Decimal(10, 2)
 
   actualHandoffAt  DateTime?
+  renterReceivedAt DateTime?
+  renterReturnedAt DateTime?
   actualReturnAt   DateTime?
-  handoffNotes     String?  @db.Text
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
+  handoffNotes     String?   @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
   cancellationConfirmedAt DateTime?
-  paymentReceivedAt        DateTime?
+  paymentReceivedAt       DateTime?
 
   productId String
-  userId String
+  userId    String
 
   // RELACIONES
-  product    Product @relation(fields: [productId], references: [id])
-  user     User  @relation(fields: [userId], references: [id])
-  payment  Payment?
+  product     Product      @relation(fields: [productId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  payment     Payment?
+  userRatings UserRating[]
 
   @@index([userId])
   @@index([productId])
@@ -156,6 +161,7 @@ model VerificationRequest {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([status])
 }
 
@@ -165,7 +171,7 @@ model Payment {
   mercadoPagoPaymentId String?       @unique
   preferenceId         String?
   status               PaymentStatus @default(PENDING)
-  amount               Decimal       @db.Decimal(10,2)
+  amount               Decimal       @db.Decimal(10, 2)
   currency             String        @default("ARS")
   paymentMethod        String?
   paymentTypeId        String?
@@ -220,4 +226,21 @@ model Comment {
 
   @@index([productId])
   @@index([userId])
+}
+
+model UserRating {
+  id            String   @id @default(uuid())
+  score         Int
+  reservationId String
+  raterId       String
+  ratedUserId   String
+  createdAt     DateTime @default(now())
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  rater       User        @relation("UserRatingRater", fields: [raterId], references: [id], onDelete: Cascade)
+  ratedUser   User        @relation("UserRatingRated", fields: [ratedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([reservationId, raterId])
+  @@index([ratedUserId])
+  @@index([reservationId])
 }

@@ -63,14 +63,33 @@ export class ReservationsController {
   @Patch(':id/handoff')
   handoff(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: any,
+    @CurrentUser() user: AuthenticatedUser,
     @Body('notes') notes?: string,
   ) {
-    return this.reservationsService.handoff(id, req.user.sub, notes);
+    return this.reservationsService.handoff(id, user.sub, notes);
+  }
+
+  @Patch(':id/handoff/confirm')
+  confirmHandoff(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reservationsService.confirmHandoffReceipt(id, user.sub);
   }
 
   @Patch(':id/return')
-  returnProduct(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.reservationsService.returnProduct(id, req.user.sub);
+  returnProduct(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reservationsService.returnProduct(id, user.sub);
+  }
+
+  @Patch(':id/return/confirm')
+  confirmReturn(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reservationsService.confirmReturnReceipt(id, user.sub);
   }
 }

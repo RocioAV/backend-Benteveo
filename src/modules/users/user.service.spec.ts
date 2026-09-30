@@ -41,6 +41,7 @@ describe('UserService', () => {
   const mockProfileCreate = jest.fn<Promise<any>, [any]>();
   const mockProfileUpsert = jest.fn<Promise<any>, [MockProfileUpsertArgs]>();
   const mockTransaction = jest.fn<Promise<any>, [any]>();
+  const mockUserRatingAggregate = jest.fn<Promise<any>, [any]>();
 
   const mockPrisma = {
     user: {
@@ -50,6 +51,7 @@ describe('UserService', () => {
       update: mockUserUpdate,
     },
     profile: { create: mockProfileCreate, upsert: mockProfileUpsert },
+    userRating: { aggregate: mockUserRatingAggregate },
     $transaction: mockTransaction,
   } as unknown as PrismaService;
 
@@ -63,6 +65,11 @@ describe('UserService', () => {
     mockProfileCreate.mockReset();
     mockProfileUpsert.mockReset();
     mockTransaction.mockReset();
+    mockUserRatingAggregate.mockReset();
+    mockUserRatingAggregate.mockResolvedValue({
+      _avg: { score: null },
+      _count: { score: 0 },
+    });
   });
 
   describe('create', () => {
@@ -298,7 +305,7 @@ describe('UserService', () => {
   });
 
   describe('findPublicProfile', () => {
-    it('devuelve el perfil público mínimo sin phone/email/dni/password/role', async () => {
+    it('devuelve el perfil público mínimo sin phone/email/dni/password/role y sin calificaciones (null/0)', async () => {
       mockUserFindFirst.mockResolvedValue({
         id: 'u1',
         name: 'A',
@@ -313,12 +320,37 @@ describe('UserService', () => {
         name: 'A',
         avatar: 'https://cdn/a.png',
         isIdentityVerified: true,
+        averageRating: null,
+        ratingCount: 0,
       });
       expect(result).not.toHaveProperty('phone');
       expect(result).not.toHaveProperty('email');
       expect(result).not.toHaveProperty('dni');
       expect(result).not.toHaveProperty('password');
       expect(result).not.toHaveProperty('role');
+    });
+
+    it('agrega promedio redondeado a 1 decimal y cantidad de calificaciones recibidas', async () => {
+      mockUserFindFirst.mockResolvedValue({
+        id: 'u1',
+        name: 'A',
+        isIdentityVerified: true,
+        profile: { avatar: 'https://cdn/a.png' },
+      });
+      mockUserRatingAggregate.mockResolvedValue({
+        _avg: { score: 4.333333 },
+        _count: { score: 3 },
+      });
+
+      const result = await userService.findPublicProfile('u1');
+
+      expect(mockUserRatingAggregate).toHaveBeenCalledWith({
+        where: { ratedUserId: 'u1' },
+        _avg: { score: true },
+        _count: { score: true },
+      });
+      expect(result.averageRating).toBe(4.3);
+      expect(result.ratingCount).toBe(3);
     });
 
     it('selecciona profile con solo avatar (sin fuga de phone)', async () => {
