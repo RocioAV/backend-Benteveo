@@ -129,7 +129,7 @@ export class ReservationsService {
             totalAmount,
           },
           include: {
-            product: true,
+            product: { include: { photos: true } },
             user: { select: SAFE_USER_SELECT },
           },
         });
@@ -172,7 +172,7 @@ export class ReservationsService {
     return this.prisma.reservation.findMany({
       where,
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
@@ -183,7 +183,7 @@ export class ReservationsService {
     return this.prisma.reservation.findMany({
       where: { userId },
       include: {
-        product: true,
+        product: { include: { photos: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -197,7 +197,7 @@ export class ReservationsService {
         },
       },
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
@@ -264,7 +264,7 @@ export class ReservationsService {
         cancellationConfirmedAt: new Date(),
       },
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
         payment: true,
       },
@@ -505,7 +505,7 @@ export class ReservationsService {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
       },
     });
