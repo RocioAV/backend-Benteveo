@@ -279,6 +279,11 @@ export class ReservationsService {
     return cancelledReservation;
   }
 
+  /**
+   * El dueño marca la entrega. Registra `actualHandoffAt` y la reserva
+   * permanece en CONFIRMED hasta que el inquilino confirme la recepción.
+   * Idempotente: si el dueño ya marcó la entrega, devuelve la reserva actual.
+   */
   async handoff(id: string, ownerId: string, notes?: string) {
     const reservation = await this.getReservationOrThrow(id);
 
@@ -288,52 +293,212 @@ export class ReservationsService {
       );
     }
 
+    if (reservation.actualHandoffAt) {
+      return reservation;
+    }
+
     if (reservation.status !== 'CONFIRMED') {
       throw new InvalidReservationStatusException(
         'Solo se pueden entregar reservas en estado CONFIRMED',
       );
     }
 
-    return this.prisma.reservation.update({
-      where: { id },
+    this.logger.log('Dueño marca entrega', {
+      reservationId: id,
+      ownerId,
+    });
+
+    // Update condicional: evita doble transición concurrente.
+    const updated = await this.prisma.reservation.updateMany({
+      where: { id, status: 'CONFIRMED', actualHandoffAt: null },
       data: {
-        status: 'ACTIVE',
         actualHandoffAt: new Date(),
         handoffNotes: notes,
       },
-      include: {
-        product: true,
-        user: { select: SAFE_USER_SELECT },
-      },
     });
+
+    if (updated.count === 0) {
+      const current = await this.getReservationOrThrow(id);
+      if (current.actualHandoffAt) {
+        return current;
+      }
+      throw new InvalidReservationStatusException(
+        'Solo se pueden entregar reservas en estado CONFIRMED',
+      );
+    }
+
+    return this.getReservationOrThrow(id);
   }
 
-  async returnProduct(id: string, ownerId: string) {
+  /**
+   * El inquilino confirma la recepción. Exige que el dueño haya marcado la
+   * entrega y recién entonces cambia la reserva a ACTIVE.
+   * Idempotente: si ya confirmó, devuelve la reserva actual.
+   */
+  async confirmHandoffReceipt(id: string, renterId: string) {
+    const reservation = await this.getReservationOrThrow(id);
+
+    if (reservation.userId !== renterId) {
+      throw new ForbiddenReservationException(
+        'No tenés permiso para confirmar la recepción de esta reserva',
+      );
+    }
+
+    if (reservation.renterReceivedAt) {
+      return reservation;
+    }
+
+    if (!reservation.actualHandoffAt) {
+      throw new InvalidReservationStatusException(
+        'El dueño debe marcar la entrega antes de confirmar la recepción',
+      );
+    }
+
+    if (reservation.status !== 'CONFIRMED') {
+      throw new InvalidReservationStatusException(
+        'Solo se puede confirmar la recepción de reservas en estado CONFIRMED',
+      );
+    }
+
+    this.logger.log('Inquilino confirma recepción', {
+      reservationId: id,
+      renterId,
+    });
+
+    const updated = await this.prisma.reservation.updateMany({
+      where: {
+        id,
+        status: 'CONFIRMED',
+        actualHandoffAt: { not: null },
+        renterReceivedAt: null,
+      },
+      data: {
+        renterReceivedAt: new Date(),
+        status: 'ACTIVE',
+      },
+    });
+
+    if (updated.count === 0) {
+      const current = await this.getReservationOrThrow(id);
+      if (current.renterReceivedAt) {
+        return current;
+      }
+      throw new InvalidReservationStatusException(
+        'Solo se puede confirmar la recepción de reservas en estado CONFIRMED',
+      );
+    }
+
+    return this.getReservationOrThrow(id);
+  }
+
+  /**
+   * El inquilino marca la devolución. Registra `renterReturnedAt` y la reserva
+   * permanece en ACTIVE hasta que el dueño confirme la recepción final.
+   * Idempotente: si ya la marcó, devuelve la reserva actual.
+   */
+  async returnProduct(id: string, renterId: string) {
+    const reservation = await this.getReservationOrThrow(id);
+
+    if (reservation.userId !== renterId) {
+      throw new ForbiddenReservationException(
+        'No tenés permiso para marcar la devolución de esta reserva',
+      );
+    }
+
+    if (reservation.renterReturnedAt) {
+      return reservation;
+    }
+
+    if (reservation.status !== 'ACTIVE') {
+      throw new InvalidReservationStatusException(
+        'Solo se puede marcar la devolución de reservas en estado ACTIVE',
+      );
+    }
+
+    this.logger.log('Inquilino marca devolución', {
+      reservationId: id,
+      renterId,
+    });
+
+    const updated = await this.prisma.reservation.updateMany({
+      where: { id, status: 'ACTIVE', renterReturnedAt: null },
+      data: {
+        renterReturnedAt: new Date(),
+      },
+    });
+
+    if (updated.count === 0) {
+      const current = await this.getReservationOrThrow(id);
+      if (current.renterReturnedAt) {
+        return current;
+      }
+      throw new InvalidReservationStatusException(
+        'Solo se puede marcar la devolución de reservas en estado ACTIVE',
+      );
+    }
+
+    return this.getReservationOrThrow(id);
+  }
+
+  /**
+   * El dueño confirma la recepción final. Exige que el inquilino haya marcado
+   * la devolución y recién entonces cambia la reserva a COMPLETED.
+   * Idempotente: si ya confirmó, devuelve la reserva actual.
+   */
+  async confirmReturnReceipt(id: string, ownerId: string) {
     const reservation = await this.getReservationOrThrow(id);
 
     if (reservation.product.ownerId !== ownerId) {
       throw new ForbiddenReservationException(
-        'No tenés permiso para recibir esta reserva',
+        'No tenés permiso para confirmar la devolución de esta reserva',
+      );
+    }
+
+    if (reservation.actualReturnAt) {
+      return reservation;
+    }
+
+    if (!reservation.renterReturnedAt) {
+      throw new InvalidReservationStatusException(
+        'El inquilino debe marcar la devolución antes de confirmar la recepción',
       );
     }
 
     if (reservation.status !== 'ACTIVE') {
       throw new InvalidReservationStatusException(
-        'Solo se pueden devolver reservas en estado ACTIVE',
+        'Solo se puede confirmar la devolución de reservas en estado ACTIVE',
       );
     }
 
-    return this.prisma.reservation.update({
-      where: { id },
-      data: {
-        status: 'COMPLETED',
-        actualReturnAt: new Date(),
+    this.logger.log('Dueño confirma recepción final', {
+      reservationId: id,
+      ownerId,
+    });
+
+    const updated = await this.prisma.reservation.updateMany({
+      where: {
+        id,
+        status: 'ACTIVE',
+        renterReturnedAt: { not: null },
+        actualReturnAt: null,
       },
-      include: {
-        product: true,
-        user: { select: SAFE_USER_SELECT },
+      data: {
+        actualReturnAt: new Date(),
+        status: 'COMPLETED',
       },
     });
+
+    if (updated.count === 0) {
+      const current = await this.getReservationOrThrow(id);
+      if (current.actualReturnAt) {
+        return current;
+      }
+      throw new InvalidReservationStatusException(
+        'Solo se puede confirmar la devolución de reservas en estado ACTIVE',
+      );
+    }
+
+    return this.getReservationOrThrow(id);
   }
 
   private async getReservationOrThrow(id: string) {

@@ -17,6 +17,10 @@ export interface PublicProfileDto {
   name: string;
   avatar: string | null;
   isIdentityVerified: boolean;
+  /** Promedio dinámico de calificaciones recibidas entre usuarios (null sin calificaciones). */
+  averageRating: number | null;
+  /** Cantidad de calificaciones recibidas entre usuarios. */
+  ratingCount: number;
 }
 
 /** Usuario público seguro para embeds (reservas/productos): sin email, DNI, phone ni password. */
@@ -28,12 +32,20 @@ export interface PublicUserDto {
 }
 
 /** Mapea un usuario (con perfil avatar) a su perfil público mínimo. */
-export function toPublicProfile(user: UserWithAvatarProfile): PublicProfileDto {
+export function toPublicProfile(
+  user: UserWithAvatarProfile,
+  rating: { averageRating: number | null; ratingCount: number } = {
+    averageRating: null,
+    ratingCount: 0,
+  },
+): PublicProfileDto {
   return {
     id: user.id,
     name: user.name,
     avatar: user.profile?.avatar ?? null,
     isIdentityVerified: user.isIdentityVerified,
+    averageRating: rating.averageRating,
+    ratingCount: rating.ratingCount,
   };
 }
 

@@ -67,11 +67,28 @@ describe('PublicUserDto / PublicProfileDto (allowlist)', () => {
         name: 'Ana',
         avatar: 'https://cdn/avatar.png',
         isIdentityVerified: true,
+        averageRating: null,
+        ratingCount: 0,
       });
       expect(result).not.toHaveProperty('email');
       expect(result).not.toHaveProperty('dni');
       expect(result).not.toHaveProperty('phone');
       expect(result).not.toHaveProperty('password');
+    });
+
+    it('incluye el promedio y la cantidad cuando se proveen', () => {
+      const result = toPublicProfile(
+        {
+          id: 'u1',
+          name: 'Ana',
+          isIdentityVerified: true,
+          profile: { avatar: 'https://cdn/avatar.png' },
+        },
+        { averageRating: 4.5, ratingCount: 2 },
+      );
+
+      expect(result.averageRating).toBe(4.5);
+      expect(result.ratingCount).toBe(2);
     });
 
     it('devuelve avatar null cuando el perfil tiene avatar null', () => {

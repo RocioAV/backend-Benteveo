@@ -1,7 +1,10 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ReservationsService } from './reservations.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
-import { ForbiddenReservationException } from '../../common/exceptions/reservation-exceptions';
+import {
+  ForbiddenReservationException,
+  InvalidReservationStatusException,
+} from '../../common/exceptions/reservation-exceptions';
 import { PaymentReversalException } from '../../common/exceptions/payment-exceptions';
 import type { MercadoPagoService } from '../payments/mercadopago.service';
 import type { PrismaService } from '../../prisma/prisma.service';
@@ -32,6 +35,8 @@ const product = {
   ownerId: 'owner-1',
   isAvailable: true,
   isDeleted: false,
+  priceDay: { toNumber: () => 100 },
+  deposit: { toNumber: () => 50 },
 };
 
 const reservation = {
@@ -50,8 +55,10 @@ describe('ReservationsService', () => {
   const mockReservationFindUnique = jest.fn<Promise<any>, [any]>();
   const mockReservationFindFirst = jest.fn<Promise<any>, [any]>();
   const mockReservationUpdate = jest.fn<Promise<any>, [any]>();
+  const mockReservationUpdateMany = jest.fn<Promise<any>, [any]>();
   const mockTransaction = jest.fn<Promise<any>, [any, any?]>();
   const mockPaymentFindUnique = jest.fn<Promise<any>, [any]>();
+  const mockPaymentCreate = jest.fn<Promise<any>, [any]>();
   const mockReversePayment = jest.fn<Promise<any>, [string]>();
 
   const mockPrisma = {
@@ -62,8 +69,9 @@ describe('ReservationsService', () => {
       findUnique: mockReservationFindUnique,
       findFirst: mockReservationFindFirst,
       update: mockReservationUpdate,
+      updateMany: mockReservationUpdateMany,
     },
-    payment: { findUnique: mockPaymentFindUnique },
+    payment: { findUnique: mockPaymentFindUnique, create: mockPaymentCreate },
     $transaction: mockTransaction,
   } as unknown as PrismaService;
 
@@ -93,9 +101,16 @@ describe('ReservationsService', () => {
           findFirst: mockReservationFindFirst,
           create: mockReservationCreate,
         },
+        payment: {
+          create: mockPaymentCreate,
+        },
       };
       return callback(tx);
     });
+    mockPaymentCreate.mockImplementation((args) =>
+      Promise.resolve({ id: 'pay-1', ...args.data }),
+    );
+    mockReservationUpdateMany.mockResolvedValue({ count: 1 });
   });
 
   describe('create (Fix 1 + Fix 5)', () => {
@@ -150,7 +165,7 @@ describe('ReservationsService', () => {
       const promise = service.create(badDto, 'renter-1');
 
       await expect(promise).rejects.toThrow(
-        'La fecha de inicio debe ser anterior',
+        'La fecha de fin debe ser posterior a la fecha de inicio',
       );
       expect(mockTransaction).not.toHaveBeenCalled();
     });
@@ -165,7 +180,7 @@ describe('ReservationsService', () => {
       const promise = service.create(pastDto, 'renter-1');
 
       await expect(promise).rejects.toThrow(
-        'La fecha de inicio no puede ser en el pasado',
+        'La fecha de inicio no puede ser anterior a la fecha actual',
       );
       expect(mockTransaction).not.toHaveBeenCalled();
     });
@@ -326,6 +341,368 @@ describe('ReservationsService', () => {
 
       expect(mockReversePayment).not.toHaveBeenCalled();
       expect(mockReservationUpdate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('handoff bilateral (dueño marca entrega, queda CONFIRMED)', () => {
+    const confirmed = {
+      ...reservation,
+      status: 'CONFIRMED',
+      actualHandoffAt: null,
+      renterReceivedAt: null,
+      renterReturnedAt: null,
+      actualReturnAt: null,
+    };
+
+    it('registra actualHandoffAt y permanece CONFIRMED', async () => {
+      mockReservationFindUnique
+        .mockResolvedValueOnce(confirmed)
+        .mockResolvedValueOnce({
+          ...confirmed,
+          actualHandoffAt: new Date(),
+        });
+
+      const result = await service.handoff('res-1', 'owner-1', 'notas');
+
+      expect(mockReservationUpdateMany).toHaveBeenCalledTimes(1);
+      const updateArgs = mockReservationUpdateMany.mock.calls[0][0];
+      expect(updateArgs.where).toMatchObject({
+        id: 'res-1',
+        status: 'CONFIRMED',
+        actualHandoffAt: null,
+      });
+      expect(updateArgs.data.actualHandoffAt).toBeInstanceOf(Date);
+      expect(updateArgs.data.handoffNotes).toBe('notas');
+      expect(updateArgs.data.status).toBeUndefined();
+      expect(result.actualHandoffAt).toBeInstanceOf(Date);
+      // La lectura final usa include seguro.
+      const { include } =
+        mockReservationFindUnique.mock.calls[
+          mockReservationFindUnique.mock.calls.length - 1
+        ][0];
+      expectSafeUserInclude(include);
+    });
+
+    it('rechaza con 403 si quien marca no es el dueño', async () => {
+      mockReservationFindUnique.mockResolvedValue(confirmed);
+
+      const promise = service.handoff('res-1', 'renter-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a un tercero aunque conozca el ID', async () => {
+      mockReservationFindUnique.mockResolvedValue(confirmed);
+
+      const promise = service.handoff('res-1', 'stranger-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza orden inválido: no se puede entregar una reserva PENDING', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...confirmed,
+        status: 'PENDING',
+      });
+
+      const promise = service.handoff('res-1', 'owner-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        InvalidReservationStatusException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('es idempotente: repetir el handoff devuelve la reserva sin actualizar', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...confirmed,
+        actualHandoffAt: new Date('2026-09-30T10:00:00.000Z'),
+      });
+
+      const result = await service.handoff('res-1', 'owner-1');
+
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+      expect(result.actualHandoffAt).toEqual(
+        new Date('2026-09-30T10:00:00.000Z'),
+      );
+    });
+
+    it('resuelve una transición concurrente devolviendo la reserva ya marcada', async () => {
+      mockReservationFindUnique
+        .mockResolvedValueOnce(confirmed)
+        .mockResolvedValueOnce({
+          ...confirmed,
+          actualHandoffAt: new Date('2026-09-30T10:00:00.000Z'),
+        });
+      mockReservationUpdateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await service.handoff('res-1', 'owner-1');
+
+      expect(result.actualHandoffAt).toEqual(
+        new Date('2026-09-30T10:00:00.000Z'),
+      );
+    });
+  });
+
+  describe('confirmHandoffReceipt (inquilino confirma, pasa a ACTIVE)', () => {
+    const delivered = {
+      ...reservation,
+      status: 'CONFIRMED',
+      actualHandoffAt: new Date('2026-09-30T10:00:00.000Z'),
+      renterReceivedAt: null,
+      renterReturnedAt: null,
+      actualReturnAt: null,
+    };
+
+    it('registra renterReceivedAt y cambia a ACTIVE', async () => {
+      mockReservationFindUnique
+        .mockResolvedValueOnce(delivered)
+        .mockResolvedValueOnce({
+          ...delivered,
+          status: 'ACTIVE',
+          renterReceivedAt: new Date(),
+        });
+
+      const result = await service.confirmHandoffReceipt('res-1', 'renter-1');
+
+      expect(mockReservationUpdateMany).toHaveBeenCalledTimes(1);
+      const updateArgs = mockReservationUpdateMany.mock.calls[0][0];
+      expect(updateArgs.where).toMatchObject({
+        id: 'res-1',
+        status: 'CONFIRMED',
+        renterReceivedAt: null,
+      });
+      expect(updateArgs.data.renterReceivedAt).toBeInstanceOf(Date);
+      expect(updateArgs.data.status).toBe('ACTIVE');
+      expect(result.status).toBe('ACTIVE');
+    });
+
+    it('rechaza con 403 si el dueño intenta confirmar la recepción', async () => {
+      mockReservationFindUnique.mockResolvedValue(delivered);
+
+      const promise = service.confirmHandoffReceipt('res-1', 'owner-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a un tercero aunque conozca el ID', async () => {
+      mockReservationFindUnique.mockResolvedValue(delivered);
+
+      const promise = service.confirmHandoffReceipt('res-1', 'stranger-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza orden inválido: no se puede confirmar sin entrega del dueño', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...reservation,
+        status: 'CONFIRMED',
+        actualHandoffAt: null,
+        renterReceivedAt: null,
+      });
+
+      const promise = service.confirmHandoffReceipt('res-1', 'renter-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        InvalidReservationStatusException,
+      );
+      await expect(promise).rejects.toThrow(
+        'El dueño debe marcar la entrega antes de confirmar la recepción',
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('es idempotente: repetir la confirmación devuelve la reserva sin actualizar', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...delivered,
+        status: 'ACTIVE',
+        renterReceivedAt: new Date('2026-09-30T11:00:00.000Z'),
+      });
+
+      const result = await service.confirmHandoffReceipt('res-1', 'renter-1');
+
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+      expect(result.status).toBe('ACTIVE');
+    });
+  });
+
+  describe('returnProduct (inquilino marca devolución, queda ACTIVE)', () => {
+    const active = {
+      ...reservation,
+      status: 'ACTIVE',
+      actualHandoffAt: new Date('2026-09-30T10:00:00.000Z'),
+      renterReceivedAt: new Date('2026-09-30T11:00:00.000Z'),
+      renterReturnedAt: null,
+      actualReturnAt: null,
+    };
+
+    it('registra renterReturnedAt y permanece ACTIVE', async () => {
+      mockReservationFindUnique
+        .mockResolvedValueOnce(active)
+        .mockResolvedValueOnce({
+          ...active,
+          renterReturnedAt: new Date(),
+        });
+
+      const result = await service.returnProduct('res-1', 'renter-1');
+
+      expect(mockReservationUpdateMany).toHaveBeenCalledTimes(1);
+      const updateArgs = mockReservationUpdateMany.mock.calls[0][0];
+      expect(updateArgs.where).toMatchObject({
+        id: 'res-1',
+        status: 'ACTIVE',
+        renterReturnedAt: null,
+      });
+      expect(updateArgs.data.renterReturnedAt).toBeInstanceOf(Date);
+      expect(updateArgs.data.status).toBeUndefined();
+      expect(result.status).toBe('ACTIVE');
+      expect(result.renterReturnedAt).toBeInstanceOf(Date);
+    });
+
+    it('rechaza con 403 si el dueño intenta marcar la devolución', async () => {
+      mockReservationFindUnique.mockResolvedValue(active);
+
+      const promise = service.returnProduct('res-1', 'owner-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a un tercero aunque conozca el ID', async () => {
+      mockReservationFindUnique.mockResolvedValue(active);
+
+      const promise = service.returnProduct('res-1', 'stranger-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza orden inválido: no se puede marcar devolución en CONFIRMED', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...active,
+        status: 'CONFIRMED',
+      });
+
+      const promise = service.returnProduct('res-1', 'renter-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        InvalidReservationStatusException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('es idempotente: repetir la devolución devuelve la reserva sin actualizar', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...active,
+        renterReturnedAt: new Date('2026-09-30T12:00:00.000Z'),
+      });
+
+      const result = await service.returnProduct('res-1', 'renter-1');
+
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+      expect(result.status).toBe('ACTIVE');
+    });
+  });
+
+  describe('confirmReturnReceipt (dueño confirma, pasa a COMPLETED)', () => {
+    const returned = {
+      ...reservation,
+      status: 'ACTIVE',
+      actualHandoffAt: new Date('2026-09-30T10:00:00.000Z'),
+      renterReceivedAt: new Date('2026-09-30T11:00:00.000Z'),
+      renterReturnedAt: new Date('2026-09-30T12:00:00.000Z'),
+      actualReturnAt: null,
+    };
+
+    it('registra actualReturnAt y cambia a COMPLETED', async () => {
+      mockReservationFindUnique
+        .mockResolvedValueOnce(returned)
+        .mockResolvedValueOnce({
+          ...returned,
+          status: 'COMPLETED',
+          actualReturnAt: new Date(),
+        });
+
+      const result = await service.confirmReturnReceipt('res-1', 'owner-1');
+
+      expect(mockReservationUpdateMany).toHaveBeenCalledTimes(1);
+      const updateArgs = mockReservationUpdateMany.mock.calls[0][0];
+      expect(updateArgs.where).toMatchObject({
+        id: 'res-1',
+        status: 'ACTIVE',
+        actualReturnAt: null,
+      });
+      expect(updateArgs.data.actualReturnAt).toBeInstanceOf(Date);
+      expect(updateArgs.data.status).toBe('COMPLETED');
+      expect(result.status).toBe('COMPLETED');
+    });
+
+    it('rechaza con 403 si el inquilino intenta confirmar la recepción final', async () => {
+      mockReservationFindUnique.mockResolvedValue(returned);
+
+      const promise = service.confirmReturnReceipt('res-1', 'renter-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a un tercero aunque conozca el ID', async () => {
+      mockReservationFindUnique.mockResolvedValue(returned);
+
+      const promise = service.confirmReturnReceipt('res-1', 'stranger-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        ForbiddenReservationException,
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('rechaza orden inválido: no se puede completar sin devolución del inquilino', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...returned,
+        renterReturnedAt: null,
+      });
+
+      const promise = service.confirmReturnReceipt('res-1', 'owner-1');
+
+      await expect(promise).rejects.toBeInstanceOf(
+        InvalidReservationStatusException,
+      );
+      await expect(promise).rejects.toThrow(
+        'El inquilino debe marcar la devolución antes de confirmar la recepción',
+      );
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('es idempotente: repetir la confirmación final devuelve la reserva sin actualizar', async () => {
+      mockReservationFindUnique.mockResolvedValue({
+        ...returned,
+        status: 'COMPLETED',
+        actualReturnAt: new Date('2026-09-30T13:00:00.000Z'),
+      });
+
+      const result = await service.confirmReturnReceipt('res-1', 'owner-1');
+
+      expect(mockReservationUpdateMany).not.toHaveBeenCalled();
+      expect(result.status).toBe('COMPLETED');
     });
   });
 });

@@ -174,7 +174,11 @@ export class UserService {
     return user;
   }
 
-  /** Perfil público de un usuario: sin email, DNI, phone ni contraseña. */
+  /**
+   * Perfil público de un usuario: sin email, DNI, phone ni contraseña,
+   * con promedio y cantidad de calificaciones recibidas entre usuarios
+   * calculados de forma dinámica (sin promedios desnormalizados).
+   */
   async findPublicProfile(id: string): Promise<PublicProfileDto> {
     const user = await this.prisma.user.findFirst({
       where: { id, isDeleted: false },
@@ -190,7 +194,19 @@ export class UserService {
       throw new UserNotFoundException(id);
     }
 
-    return toPublicProfile(user);
+    const aggregate = await this.prisma.userRating.aggregate({
+      where: { ratedUserId: id },
+      _avg: { score: true },
+      _count: { score: true },
+    });
+
+    return toPublicProfile(user, {
+      averageRating:
+        aggregate._avg.score === null
+          ? null
+          : Number(aggregate._avg.score.toFixed(1)),
+      ratingCount: aggregate._count.score,
+    });
   }
 
   async remove(id: string): Promise<PublicUser> {
