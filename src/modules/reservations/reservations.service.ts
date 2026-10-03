@@ -129,7 +129,7 @@ export class ReservationsService {
             totalAmount,
           },
           include: {
-            product: true,
+            product: { include: { photos: true } },
             user: { select: SAFE_USER_SELECT },
           },
         });
@@ -172,7 +172,7 @@ export class ReservationsService {
     return this.prisma.reservation.findMany({
       where,
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
@@ -183,7 +183,7 @@ export class ReservationsService {
     return this.prisma.reservation.findMany({
       where: { userId },
       include: {
-        product: true,
+        product: { include: { photos: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -197,7 +197,7 @@ export class ReservationsService {
         },
       },
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
       },
       orderBy: { createdAt: 'desc' },
@@ -252,9 +252,21 @@ export class ReservationsService {
     let paymentStatus: PaymentStatus | null = null;
 
     if (payment) {
-      // Revierte en Mercado Pago primero: si falla, se lanza la excepción
-      // y la reserva NO se cancela (el usuario puede reintentar).
-      paymentStatus = await this.mercadoPago.reversePayment(payment.id);
+      // Reembolso simulado: si Mercado Pago rechaza la reversión (esperado en
+      // este entorno) se ignora y la reserva se cancela igualmente. El
+      // reembolso se informa desde el frontend con una secuencia de toasts.
+      try {
+        paymentStatus = await this.mercadoPago.reversePayment(payment.id);
+      } catch (error) {
+        this.logger.warn(
+          'Reversión de pago fallida — se ignora y la reserva se cancela igual',
+          {
+            reservationId: id,
+            paymentId: payment.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+      }
     }
 
     const cancelledReservation = await this.prisma.reservation.update({
@@ -264,7 +276,7 @@ export class ReservationsService {
         cancellationConfirmedAt: new Date(),
       },
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
         payment: true,
       },
@@ -505,7 +517,7 @@ export class ReservationsService {
     const reservation = await this.prisma.reservation.findUnique({
       where: { id },
       include: {
-        product: true,
+        product: { include: { photos: true } },
         user: { select: SAFE_USER_SELECT },
       },
     });

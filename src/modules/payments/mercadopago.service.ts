@@ -81,6 +81,7 @@ export class MercadoPagoService {
       paymentId,
       preferenceId: response.id,
     });
+    console.log('Preferencia creada', response);
 
     await this.prisma.payment.update({
       where: { id: paymentId },
@@ -88,7 +89,7 @@ export class MercadoPagoService {
     });
 
     return {
-      init_point: response.init_point,
+      init_point: response.sandbox_init_point,
       preferenceId: response.id,
     };
   }
@@ -159,7 +160,28 @@ export class MercadoPagoService {
       );
     }
 
+    // 1. Consultar y mostrar todos los datos del pago en MP
     try {
+      const paymentData = await this.paymentClient.get({ id: mpPaymentId });
+      console.log('DATOS DEL PAGO EN MERCADO PAGO:', JSON.stringify(paymentData, null, 2));
+
+      // O campos clave específicos:
+      console.log('RESUMEN PAGO:', {
+        id: paymentData.id,
+        status: paymentData.status,
+        status_detail: paymentData.status_detail,
+        live_mode: paymentData.live_mode, // <-- Esto te dirá si MP lo tomó como test (false) o producción (true)
+        collector_id: paymentData.collector_id,
+        payer: paymentData.payer?.email,
+        transaction_amount: paymentData.transaction_amount,
+      });
+    } catch (err: any) {
+      console.error('Error al consultar datos del pago en MP:', err?.message || err);
+    }
+
+    // 2. Ejecutar el reembolso
+    try {
+      console.log(paymentId, mpPaymentId);
       await this.refundClient.total({ payment_id: mpPaymentId });
     } catch (error) {
       const mpStatus = await this.getMpPaymentStatus(mpPaymentId);

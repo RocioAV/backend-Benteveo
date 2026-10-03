@@ -30,6 +30,12 @@ function expectSafeUserInclude(include: any) {
   expect(include.user.select.profile).toEqual({ select: { avatar: true } });
 }
 
+/** Afirma que el producto se incluye con sus fotos (el mapper usa `photos[0]?.url`). */
+function expectProductPhotosInclude(include: any) {
+  expect(include.product).not.toEqual(true);
+  expect(include.product).toEqual({ include: { photos: true } });
+}
+
 const product = {
   id: 'prod-1',
   ownerId: 'owner-1',
@@ -208,6 +214,56 @@ describe('ReservationsService', () => {
     });
   });
 
+  describe('product photos (Bloque 1: imageUrl desde photos[0])', () => {
+    it('create incluye las fotos del producto', async () => {
+      await service.create(dto, 'renter-1');
+
+      const { include } = mockReservationCreate.mock.calls[0][0];
+      expectProductPhotosInclude(include);
+    });
+
+    it('findAll incluye las fotos del producto', async () => {
+      mockReservationFindMany.mockResolvedValue([]);
+
+      await service.findAll({});
+
+      const { include } = mockReservationFindMany.mock.calls[0][0];
+      expectProductPhotosInclude(include);
+    });
+
+    it('findMyReservations (inquilino) incluye las fotos del producto', async () => {
+      mockReservationFindMany.mockResolvedValue([]);
+
+      await service.findMyReservations('renter-1');
+
+      const { include } = mockReservationFindMany.mock.calls[0][0];
+      expectProductPhotosInclude(include);
+    });
+
+    it('findAsOwner (dueño) incluye las fotos del producto', async () => {
+      mockReservationFindMany.mockResolvedValue([]);
+
+      await service.findAsOwner('owner-1');
+
+      const { include } = mockReservationFindMany.mock.calls[0][0];
+      expectProductPhotosInclude(include);
+    });
+
+    it('findOne (detalle) incluye las fotos del producto', async () => {
+      mockReservationFindUnique.mockResolvedValue(reservation);
+      const renter: AuthenticatedUser = {
+        sub: 'renter-1',
+        email: 'r@example.com',
+        role: Role.USER,
+      };
+
+      await service.findOne('res-1', renter);
+
+      const { include } = mockReservationFindUnique.mock.calls[0][0];
+      expectProductPhotosInclude(include);
+    });
+  });
+
   describe('findOne (Fix 4)', () => {
     const renter: AuthenticatedUser = {
       sub: 'renter-1',
@@ -323,15 +379,24 @@ describe('ReservationsService', () => {
       expect(updateArgs.include.payment).toBe(true);
     });
 
-    it('no cancela la reserva si el reverso en MP falla', async () => {
+    it('cancela igual si el reverso en MP falla (reembolso simulado)', async () => {
       mockReversePayment.mockRejectedValue(
         new PaymentReversalException('pay-1'),
       );
 
-      const promise = service.cancel('res-1', 'renter-1', Role.USER);
+      const cancelled = await service.cancel('res-1', 'renter-1', Role.USER);
 
-      await expect(promise).rejects.toBeInstanceOf(PaymentReversalException);
-      expect(mockReservationUpdate).not.toHaveBeenCalled();
+      expect(mockReversePayment).toHaveBeenCalledWith('pay-1');
+      expect(mockReversePayment.mock.invocationCallOrder[0]).toBeLessThan(
+        mockReservationUpdate.mock.invocationCallOrder[0],
+      );
+      expect(mockReservationUpdate).toHaveBeenCalledTimes(1);
+
+      const updateArgs = mockReservationUpdate.mock.calls[0][0] as {
+        data: { status: string };
+      };
+      expect(updateArgs.data.status).toBe('CANCELLED');
+      expect(cancelled.status).toBe('CANCELLED');
     });
 
     it('cancela aunque la reserva no tenga pago asociado', async () => {
