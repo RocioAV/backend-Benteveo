@@ -379,15 +379,24 @@ describe('ReservationsService', () => {
       expect(updateArgs.include.payment).toBe(true);
     });
 
-    it('no cancela la reserva si el reverso en MP falla', async () => {
+    it('cancela igual si el reverso en MP falla (reembolso simulado)', async () => {
       mockReversePayment.mockRejectedValue(
         new PaymentReversalException('pay-1'),
       );
 
-      const promise = service.cancel('res-1', 'renter-1', Role.USER);
+      const cancelled = await service.cancel('res-1', 'renter-1', Role.USER);
 
-      await expect(promise).rejects.toBeInstanceOf(PaymentReversalException);
-      expect(mockReservationUpdate).not.toHaveBeenCalled();
+      expect(mockReversePayment).toHaveBeenCalledWith('pay-1');
+      expect(mockReversePayment.mock.invocationCallOrder[0]).toBeLessThan(
+        mockReservationUpdate.mock.invocationCallOrder[0],
+      );
+      expect(mockReservationUpdate).toHaveBeenCalledTimes(1);
+
+      const updateArgs = mockReservationUpdate.mock.calls[0][0] as {
+        data: { status: string };
+      };
+      expect(updateArgs.data.status).toBe('CANCELLED');
+      expect(cancelled.status).toBe('CANCELLED');
     });
 
     it('cancela aunque la reserva no tenga pago asociado', async () => {

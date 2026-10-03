@@ -252,9 +252,21 @@ export class ReservationsService {
     let paymentStatus: PaymentStatus | null = null;
 
     if (payment) {
-      // Revierte en Mercado Pago primero: si falla, se lanza la excepción
-      // y la reserva NO se cancela (el usuario puede reintentar).
-      paymentStatus = await this.mercadoPago.reversePayment(payment.id);
+      // Reembolso simulado: si Mercado Pago rechaza la reversión (esperado en
+      // este entorno) se ignora y la reserva se cancela igualmente. El
+      // reembolso se informa desde el frontend con una secuencia de toasts.
+      try {
+        paymentStatus = await this.mercadoPago.reversePayment(payment.id);
+      } catch (error) {
+        this.logger.warn(
+          'Reversión de pago fallida — se ignora y la reserva se cancela igual',
+          {
+            reservationId: id,
+            paymentId: payment.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        );
+      }
     }
 
     const cancelledReservation = await this.prisma.reservation.update({
