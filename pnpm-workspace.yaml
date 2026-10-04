@@ -1,2 +1,10 @@
-allowBuilds:
-  unrs-resolver: true
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - '@scarf/scarf'
+  - '@tree-sitter-grammars/tree-sitter-yaml'
+  - bcrypt
+  - core-js-pure
+  - prisma
+  - tree-sitter
+  - tree-sitter-json
+  - unrs-resolver

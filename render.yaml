@@ -1,0 +1,52 @@
+# Blueprint de Render — API Benteveo (NestJS + Prisma + Neon).
+#
+# - El deploy corre desde `main` (auto-deploy on push).
+# - Los secretos NO se versionan acá: van en el dashboard de Render
+#   (Environment → Environment Variables) con `sync: false`.
+# - Migraciones corren en el build (`prisma migrate deploy`) contra Neon.
+services:
+  - type: web
+    name: benteveo-api
+    runtime: node
+    plan: free
+    buildCommand: >-
+      pnpm install --frozen-lockfile &&
+      pnpm exec prisma generate &&
+      pnpm exec prisma migrate deploy &&
+      pnpm build
+    startCommand: pnpm start:prod
+    # Endpoint público sin auth (el AuthGuard global protege el resto).
+    healthCheckPath: /api/v1/health
+    envVars:
+      # Habilita cookies `Secure` (HTTPS siempre en Render).
+      - key: NODE_ENV
+        value: production
+      # Front en Vercel y back en Render => dominios distintos: sin
+      # SameSite=None el navegador no manda la cookie de sesión en los fetch
+      # cross-site y el login "no se sostiene".
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: JWT_EXPIRES_IN
+        value: 60m
+      # Secretos / URLs reales: se cargan a mano en el dashboard.
+      - key: DATABASE_URL
+        sync: false # connection string directo de Neon (con sslmode=require)
+      - key: JWT_SECRET
+        sync: false
+      # Coma-separados; debe incluir la URL final del front en Vercel.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: BACKEND_URL
+        sync: false
+      - key: MP_WEBHOOK_URL
+        sync: false
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

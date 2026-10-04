@@ -2,6 +2,7 @@
 /dist
 /node_modules
 /build
+*.tsbuildinfo
 
 # Logs
 logs
@@ -41,6 +42,20 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+
+# agent teams lite (SDD registry)
+.atl/
+
+# stale generated Prisma client (real client lives in @prisma/client)
+/src/generated/
+
+# AI agent tooling (third-party skills, regenerable)
+.agents/
+.claude/
+skills-lock.json
+
+# AI-generated project docs (audit + action plan)
+docs/
 
 # temp directory
 .temp

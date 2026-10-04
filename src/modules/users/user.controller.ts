@@ -1,0 +1,78 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Query,
+  UsePipes,
+  ValidationPipe,
+  HttpCode,
+  HttpStatus,
+  Patch,
+} from '@nestjs/common';
+import { UserService } from './user.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/types/user.types';
+import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+
+@Controller('user')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @Get()
+  @Roles(Role.ADMIN)
+  async findAll() {
+    return await this.userService.findAll();
+  }
+
+  @Get('dni/:dni')
+  @Roles(Role.ADMIN)
+  async findByDni(@Param('dni') dni: string) {
+    return await this.userService.findByDniPublic(dni);
+  }
+
+  @Get('recent')
+  @Roles(Role.ADMIN)
+  async findRecent(@Query('limit') limit?: string) {
+    const n = limit ? parseInt(limit, 10) : 10;
+    return await this.userService.findRecent(n);
+  }
+
+  @Get('profile')
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
+    return await this.userService.findOne(user.sub);
+  }
+
+  @Get('data-user')
+  @HttpCode(HttpStatus.OK)
+  async getMyProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.userService.getUserWithProfile(user.sub);
+  }
+
+  @Patch('data-user')
+  @UsePipes(new ValidationPipe({ whitelist: true }))
+  @HttpCode(HttpStatus.OK)
+  async updateMyProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.userService.updateMyProfile(user.sub, updateProfileDto);
+  }
+
+  @Get(':id')
+  @Public()
+  async findOne(@Param('id') id: string) {
+    return await this.userService.findPublicProfile(id);
+  }
+
+  @Patch('delete')
+  @Roles(Role.ADMIN, Role.USER)
+  @UsePipes(new ValidationPipe())
+  @HttpCode(HttpStatus.OK)
+  async remove(@CurrentUser() user: AuthenticatedUser) {
+    return await this.userService.remove(user.sub);
+  }
+}
