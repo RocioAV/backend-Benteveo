@@ -52,9 +52,21 @@ export class MercadoPagoService {
     }
 
     const product = payment.reservation.product;
-    // const frontendUrl = this.configService.get<string>('FRONTEND_URL_DEPLOY '); //debemos desplegar el forntend
-    // const backendUrl = this.configService.get<string>('BACKEND_URL_DEPLOY');
-    const frontendUrl = 'https://localhost:5173';
+
+    // URLs del deploy: en prod apuntan al front (Vercel) y al webhook público
+    // del propio backend (Render). Sin webhook configurado no se envía
+    // `notification_url` (antes estaba hardcodeada a ngrok).
+    const frontendUrl = (
+      this.configService.get<string>('FRONTEND_URL') ?? 'http://localhost:5173'
+    ).replace(/\/+$/, '');
+    const backendUrl = (
+      this.configService.get<string>('BACKEND_URL') ?? ''
+    ).replace(/\/+$/, '');
+    const webhookUrl = (
+      this.configService.get<string>('MP_WEBHOOK_URL') ??
+      (backendUrl ? `${backendUrl}/api/v1/payments/webhook` : '')
+    ).trim();
+
     const preferenceBody = {
       items: [
         {
@@ -71,7 +83,7 @@ export class MercadoPagoService {
         pending: `${frontendUrl}/pago-pendiente`,
       },
       auto_return: 'approved' as const,
-      notification_url: `https://179e-2800-810-599-14d6-bcfd-9c76-7013-3fcc.ngrok-free.app/api/v1/payments/webhook`, //cambiar cuando se deploye
+      ...(webhookUrl ? { notification_url: webhookUrl } : {}),
       external_reference: paymentId,
     };
 
