@@ -31,11 +31,107 @@ const IMAGENES = {
   camaElastica: '/images/cama-elastica.webp',
   aspiradora: '/images/aspiradora-multiuso.webp',
   maquinaCoser: '/images/maquina-de-coser.webp',
-  // — Placeholders TEMPORALES (reemplazar con URLs reales) —
-  camara: 'https://placehold.co/600x400?text=C%C3%A1mara+DSLR',
-  drone: 'https://placehold.co/600x400?text=Drone+4K',
-  raqueta: 'https://placehold.co/600x400?text=Raquetas+P%C3%A1del',
+  // — Galerías con 4 fotos reales en frontend-benteveo/public/images/ —
+  camara: '/images/camara-dslr-1.webp',
+  drone: '/images/drone-4k-1.webp',
+  raqueta: '/images/raquetas-padel-1.webp',
 };
+
+// ─── GALERÍAS (título exacto del producto → fotos a cargar) ──────────────
+// Solo se aplican si TODAS las fotos actuales del producto son placeholders
+// (picsum.photos / placehold.co) o si el producto no tiene fotos.
+// Si alguna foto es de Cloudinary o local (/images/...), el producto se salta.
+const GALERIAS: Record<string, string[]> = {
+  // — 4 fotos reales nuevas (copiadas a public/images/) —
+  'Cámara DSLR con lente 18-55': [
+    '/images/camara-dslr-1.webp',
+    '/images/camara-dslr-2.webp',
+    '/images/camara-dslr-3.webp',
+    '/images/camara-dslr-4.webp',
+  ],
+  'Drone con cámara 4K': [
+    '/images/drone-4k-1.webp',
+    '/images/drone-4k-2.webp',
+    '/images/drone-4k-3.webp',
+    '/images/drone-4k-4.webp',
+  ],
+  'Pack raquetas de pádel': [
+    '/images/raquetas-padel-1.webp',
+    '/images/raquetas-padel-2.webp',
+    '/images/raquetas-padel-3.webp',
+    '/images/raquetas-padel-4.webp',
+  ],
+  'Gazebo plegable 3x3': [
+    '/images/gazebo-plegable-1.webp',
+    '/images/gazebo-plegable-2.webp',
+    '/images/gazebo-plegable-3.webp',
+    '/images/gazebo-plegable-4.webp',
+  ],
+  'Castillo inflable': [
+    '/images/castillo-inflable-1.webp',
+    '/images/castillo-inflable-2.webp',
+    '/images/castillo-inflable-3.webp',
+    '/images/castillo-inflable-4.webp',
+  ],
+  'Máquina de pochoclos': [
+    '/images/maquina-pochoclos-1.webp',
+    '/images/maquina-pochoclos-2.webp',
+    '/images/maquina-pochoclos-3.webp',
+    '/images/maquina-pochoclos-4.webp',
+  ],
+  'Proyector Full HD': [
+    '/images/proyector-fullhd-1.webp',
+    '/images/proyector-fullhd-2.webp',
+    '/images/proyector-fullhd-3.webp',
+    '/images/proyector-fullhd-4.webp',
+  ],
+  'Parlante Bluetooth 100W': [
+    '/images/parlante-bluetooth-1.webp',
+    '/images/parlante-bluetooth-2.webp',
+    '/images/parlante-bluetooth-3.webp',
+    '/images/parlante-bluetooth-4.webp',
+  ],
+  'Soldadora inverter 200A': [
+    '/images/soldadora-inverter-1.webp',
+    '/images/soldadora-inverter-2.webp',
+    '/images/soldadora-inverter-3.webp',
+    '/images/soldadora-inverter-4.webp',
+  ],
+  'Desmalezadora a explosión': [
+    '/images/desmalezadora-1.webp',
+    '/images/desmalezadora-2.webp',
+    '/images/desmalezadora-3.webp',
+    '/images/desmalezadora-4.webp',
+  ],
+  'Mesa de luz nórdica': [
+    '/images/mesa-de-luz-1.webp',
+    '/images/mesa-de-luz-2.webp',
+    '/images/mesa-de-luz-3.webp',
+    '/images/mesa-de-luz-4.webp',
+  ],
+  'Sillón de lectura': [
+    '/images/sillon-lectura-1.webp',
+    '/images/sillon-lectura-2.webp',
+    '/images/sillon-lectura-3.webp',
+    '/images/sillon-lectura-4.webp',
+  ],
+  // — 1 foto local existente —
+  'Carpa 4 personas': ['/images/carpa.webp'],
+  'Aspiradora multiuso': ['/images/aspiradora-multiuso.webp'],
+  'Conservadora portátil': ['/images/conservadora-portatil.webp'],
+  'Taladro percutor 800W': ['/images/taladro.webp'],
+  'Bordeadora eléctrica': ['/images/bordeadora-electrica.webp'],
+};
+
+/** Slug de respaldo cuando el título no está en PRODUCTS (p. ej. productos ya existentes en la DB). */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
 
 // ─── USUARIOS (6) ───────────────────────────────────────────────────────
 // Emails y DNI distintos entre sí; evitan propietaria@benteveo.com (seed.ts)
@@ -420,6 +516,21 @@ const RATINGS = [
   { userEmail: 'maria@benteveo-demo.com', productTitle: 'Aspiradora industrial HEPA', score: 5 },
   { userEmail: 'pedro@benteveo-demo.com', productTitle: 'Cámara DSLR con lente 18-55', score: 5 },
   { userEmail: 'pedro@benteveo-demo.com', productTitle: 'Escalera plegable 5 metros', score: 4 },
+  // — Productos de propietaria@benteveo.com (nadie califica lo suyo) —
+  { userEmail: 'maria@benteveo-demo.com', productTitle: 'Carpa 4 personas', score: 4 },
+  { userEmail: 'pedro@benteveo-demo.com', productTitle: 'Gazebo plegable 3x3', score: 5 },
+  { userEmail: 'juan@benteveo-demo.com', productTitle: 'Castillo inflable', score: 4 },
+  { userEmail: 'maria@benteveo-demo.com', productTitle: 'Máquina de pochoclos', score: 3 },
+  { userEmail: 'pedro@benteveo-demo.com', productTitle: 'Aspiradora multiuso', score: 4 },
+  { userEmail: 'juan@benteveo-demo.com', productTitle: 'Conservadora portátil', score: 5 },
+  { userEmail: 'maria@benteveo-demo.com', productTitle: 'Proyector Full HD', score: 5 },
+  { userEmail: 'pedro@benteveo-demo.com', productTitle: 'Parlante Bluetooth 100W', score: 3 },
+  { userEmail: 'juan@benteveo-demo.com', productTitle: 'Taladro percutor 800W', score: 4 },
+  { userEmail: 'maria@benteveo-demo.com', productTitle: 'Soldadora inverter 200A', score: 4 },
+  { userEmail: 'pedro@benteveo-demo.com', productTitle: 'Bordeadora eléctrica', score: 5 },
+  { userEmail: 'juan@benteveo-demo.com', productTitle: 'Desmalezadora a explosión', score: 3 },
+  { userEmail: 'maria@benteveo-demo.com', productTitle: 'Mesa de luz nórdica', score: 5 },
+  { userEmail: 'juan@benteveo-demo.com', productTitle: 'Sillón de lectura', score: 5 },
 ];
 
 // ─── USER RATINGS (solo reservas COMPLETED, bilateral) ─────────────────
@@ -466,9 +577,14 @@ async function main() {
     commentsExisting: 0,
     ratingsCreated: 0,
     ratingsExisting: 0,
+    ratingsTitlesMissing: [] as string[],
     userRatingsCreated: 0,
     userRatingsExisting: 0,
     productsRatingUpdated: 0,
+    galleriesProductsUpdated: 0,
+    galleriesPhotosCreated: 0,
+    galleriesTitlesMissing: [] as string[],
+    galleriesTitlesSkipped: [] as string[],
   };
 
   try {
@@ -546,6 +662,51 @@ async function main() {
         });
         log.photosCreated++;
       }
+    }
+
+    // ── 3b. Galerías (fotos reales de productos) ────────────────────────
+    // Regla: solo reemplaza si el producto no tiene fotos o si TODAS sus
+    // fotos actuales son placeholders (picsum.photos / placehold.co).
+    // Si alguna foto es de Cloudinary o local (/images/...), no se toca.
+    const isPlaceholderUrl = (url: string) =>
+      url.includes('picsum.photos') || url.includes('placehold.co');
+
+    for (const [title, urls] of Object.entries(GALERIAS)) {
+      const product = await prisma.product.findFirst({ where: { title } });
+      if (!product) {
+        log.galleriesTitlesMissing.push(title);
+        continue;
+      }
+
+      const photos = await prisma.photoProduct.findMany({
+        where: { productId: product.id },
+      });
+      const canReplace =
+        photos.length === 0 || photos.every((ph) => isPlaceholderUrl(ph.url));
+
+      if (!canReplace) {
+        log.galleriesTitlesSkipped.push(title);
+        continue;
+      }
+
+      if (photos.length > 0) {
+        await prisma.photoProduct.deleteMany({ where: { productId: product.id } });
+      }
+
+      const def = PRODUCTS.find((p) => p.title === title);
+      const slug = def ? def.slug : slugify(title);
+
+      for (let i = 0; i < urls.length; i++) {
+        await prisma.photoProduct.create({
+          data: {
+            productId: product.id,
+            url: urls[i],
+            publicId: `seed-demo/${slug}-${i + 1}`,
+          },
+        });
+        log.galleriesPhotosCreated++;
+      }
+      log.galleriesProductsUpdated++;
     }
 
     // ── 4. Reservas ────────────────────────────────────────────────────
@@ -626,8 +787,30 @@ async function main() {
     // ── 7. Ratings de producto ─────────────────────────────────────────
     for (const r of RATINGS) {
       const userId = emailToId.get(r.userEmail);
-      const productId = titleToId.get(r.productTitle);
-      if (!userId || !productId) continue;
+
+      // titleToId solo conoce los títulos de PRODUCTS; si el rating apunta a
+      // un producto de otra fuente, se resuelve contra la BD.
+      let productId = titleToId.get(r.productTitle);
+      if (!productId) {
+        const found = await prisma.product.findFirst({
+          where: { title: r.productTitle, isDeleted: false },
+        });
+        if (found) {
+          productId = found.id;
+          titleToId.set(r.productTitle, found.id);
+        }
+      }
+
+      if (!userId) {
+        console.warn(`⚠ Rating ${r.userEmail} -> ${r.productTitle}: usuario no encontrado`);
+        continue;
+      }
+      if (!productId) {
+        if (!log.ratingsTitlesMissing.includes(r.productTitle)) {
+          log.ratingsTitlesMissing.push(r.productTitle);
+        }
+        continue;
+      }
 
       const existing = await prisma.rating.findUnique({
         where: { userId_productId: { userId, productId } },
@@ -686,10 +869,20 @@ async function main() {
     console.log(`Usuarios:        ${log.usersCreated} creados, ${log.usersExisting} existentes`);
     console.log(`Productos:       ${log.productsCreated} creados, ${log.productsExisting} existentes`);
     console.log(`Fotos:           ${log.photosCreated} creadas`);
+    console.log(`Galerías:        ${log.galleriesProductsUpdated} productos actualizados, ${log.galleriesPhotosCreated} fotos creadas`);
+    if (log.galleriesTitlesSkipped.length > 0) {
+      console.log(`  salteadas (fotos reales, no se tocaron): ${log.galleriesTitlesSkipped.join(' | ')}`);
+    }
+    if (log.galleriesTitlesMissing.length > 0) {
+      console.log(`  títulos no encontrados: ${log.galleriesTitlesMissing.join(' | ')}`);
+    }
     console.log(`Reservas:        ${log.reservationsCreated} creadas, ${log.reservationsExisting} existentes`);
     console.log(`Favoritos:       ${log.favoritesCreated} creados, ${log.favoritesExisting} existentes`);
     console.log(`Comentarios:     ${log.commentsCreated} creados, ${log.commentsExisting} existentes`);
     console.log(`Ratings prod.:   ${log.ratingsCreated} creados, ${log.ratingsExisting} existentes`);
+    if (log.ratingsTitlesMissing.length > 0) {
+      console.log(`  Ratings: títulos no encontrados: ${log.ratingsTitlesMissing.join(' | ')}`);
+    }
     console.log(`UserRatings:     ${log.userRatingsCreated} creados, ${log.userRatingsExisting} existentes`);
     console.log(`Products upd.:   ${log.productsRatingUpdated} con rating recalculado`);
     console.log('────────────────────────\n');
