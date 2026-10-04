@@ -23,6 +23,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node prisma/seed.ts",
     "seed:admin": "ts-node prisma/seed.js",
+    "seed:demo": "ts-node prisma/seed-demo.ts",
     "bootstrap:admin": "ts-node prisma/bootstrap-admin.ts"
   },
   "prisma": {
