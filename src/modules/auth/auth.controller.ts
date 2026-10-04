@@ -9,7 +9,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { AuthService, resolveSecureFlag } from './auth.service';
+import { AuthService } from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login-dto';
@@ -17,9 +17,9 @@ import {
   SESSION_COOKIE_NAME,
   CSRF_COOKIE_NAME,
   COOKIE_PATH,
-  COOKIE_SAME_SITE,
+  resolveCookieSameSite,
+  resolveCookieSecure,
 } from '../../common/constants/cookies';
-
 
 @Controller('auth')
 export class AuthController {
@@ -36,12 +36,21 @@ export class AuthController {
     @Body() signInDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    const { accessToken, csrfToken, maxAgeMs, secure } =
-      await this.authService.signIn(signInDto.email, signInDto.password);
+    const {
+      accessToken,
+      csrfToken,
+      maxAgeMs,
+      secure: secureFromService,
+    } = await this.authService.signIn(signInDto.email, signInDto.password);
+
+    const sameSite = resolveCookieSameSite();
+    // `SameSite=None` sólo es válido con `Secure`; el service aporta el flag
+    // de `NODE_ENV` y aquí se completa el caso cross-site.
+    const secure = secureFromService || sameSite === 'none';
 
     res.cookie(SESSION_COOKIE_NAME, accessToken, {
       httpOnly: true,
-      sameSite: COOKIE_SAME_SITE,
+      sameSite,
       secure,
       path: COOKIE_PATH,
       maxAge: maxAgeMs,
@@ -49,7 +58,7 @@ export class AuthController {
 
     res.cookie(CSRF_COOKIE_NAME, csrfToken, {
       httpOnly: false,
-      sameSite: COOKIE_SAME_SITE,
+      sameSite,
       secure,
       path: COOKIE_PATH,
       maxAge: maxAgeMs,
@@ -63,22 +72,20 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Public()
   @Post('logout')
-  logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): void {
-    const secure = resolveSecureFlag(process.env.NODE_ENV);
+  logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): void {
+    const sameSite = resolveCookieSameSite();
+    const secure = resolveCookieSecure();
 
     res.clearCookie(SESSION_COOKIE_NAME, {
       httpOnly: true,
-      sameSite: COOKIE_SAME_SITE,
+      sameSite,
       secure,
       path: COOKIE_PATH,
     });
 
     res.clearCookie(CSRF_COOKIE_NAME, {
       httpOnly: false,
-      sameSite: COOKIE_SAME_SITE,
+      sameSite,
       secure,
       path: COOKIE_PATH,
     });
