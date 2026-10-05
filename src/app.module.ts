@@ -22,6 +22,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -36,7 +37,10 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
           expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ?? '60m') as
-            `${number}s` | `${number}m` | `${number}h` | `${number}d`,
+            | `${number}s`
+            | `${number}m`
+            | `${number}h`
+            | `${number}d`,
         },
       }),
     }),
@@ -52,6 +56,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     PaymentsModule,
     FavoritesModule,
     ReviewsModule,
+    ChatModule,
     // StripeModule,
     // SubscriptionModule,
   ],
