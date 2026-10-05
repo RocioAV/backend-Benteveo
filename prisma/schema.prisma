@@ -58,6 +58,7 @@ model User {
   givenRatings        UserRating[]         @relation("UserRatingRater")
   receivedRatings     UserRating[]         @relation("UserRatingRated")
   messages            Message[]
+  requesterInquiries  ProductInquiry[]
 
   @@index([role])
   @@index([isDeleted])
@@ -100,6 +101,7 @@ model Product {
   favorites    Favorite[]
   ratings      Rating[]
   comments     Comment[]
+  inquiries    ProductInquiry[]
 
   @@index([ownerId])
   @@index([category])
@@ -152,17 +154,35 @@ model Reservation {
 
 model Message {
   id            String      @id @default(uuid())
-  reservationId String
+  reservationId String?
+  inquiryId     String?
   senderId      String
   content       String      @db.Text
   createdAt     DateTime    @default(now())
   readAt        DateTime?
 
-  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  sender      User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reservation Reservation?   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  inquiry     ProductInquiry? @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  sender      User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([reservationId, createdAt])
+  @@index([inquiryId, createdAt])
   @@index([senderId])
+}
+
+model ProductInquiry {
+  id          String   @id @default(uuid())
+  productId   String
+  requesterId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  requester User      @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@unique([productId, requesterId])
+  @@index([requesterId, updatedAt])
 }
 
 model VerificationRequest {

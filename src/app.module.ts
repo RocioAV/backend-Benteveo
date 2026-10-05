@@ -23,6 +23,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { ChatModule } from './modules/chat/chat.module';
+import { InquiriesModule } from './modules/inquiries/inquiries.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { ChatModule } from './modules/chat/chat.module';
     PaymentsModule,
     FavoritesModule,
     ReviewsModule,
+    InquiriesModule,
     ChatModule,
     // StripeModule,
     // SubscriptionModule,

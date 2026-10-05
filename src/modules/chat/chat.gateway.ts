@@ -11,11 +11,15 @@ import type { AuthenticatedUser } from '../../common/types/user.types';
 import { SESSION_COOKIE_NAME } from '../../common/constants/cookies';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { ChatService } from './chat.service';
+import { InquiriesService } from '../inquiries/inquiries.service';
 import { CHAT_READY_STATE_OPEN, CHAT_WS_PATH } from './chat.constants';
 import { ChatWsExceptionFilter, toChatError } from './chat.errors';
 import { JoinChatDto } from './dto/join-chat.dto';
+import { JoinInquiryDto } from './dto/join-inquiry.dto';
 import { LeaveChatDto } from './dto/leave-chat.dto';
+import { LeaveInquiryDto } from './dto/leave-inquiry.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { SendInquiryMessageDto } from './dto/send-inquiry-message.dto';
 
 interface ChatSocket {
   readyState: number;
@@ -60,7 +64,22 @@ type ChatServerEvent =
       type: 'message:new';
       message: unknown;
       clientMessageId?: string;
+    }
+  | {
+      type: 'inquiry:history';
+      inquiryId: string;
+      messages: unknown[];
+    }
+  | {
+      type: 'inquiry:message:new';
+      message: unknown;
+      clientMessageId?: string;
     };
+
+type ChatBroadcastEvent = Extract<
+  ChatServerEvent,
+  { type: 'message:new' | 'inquiry:message:new' }
+>;
 
 function parseCookieHeader(
   header: string | undefined,
@@ -93,6 +112,7 @@ export class ChatGateway {
 
   constructor(
     private readonly chatService: ChatService,
+    private readonly inquiriesService: InquiriesService,
     private readonly authGuard: AuthGuard,
     private readonly configService: ConfigService,
   ) {}
@@ -114,8 +134,8 @@ export class ChatGateway {
   }
 
   handleDisconnect(client: ChatSocket): void {
-    for (const reservationId of client.rooms ?? []) {
-      this.removeFromRoom(reservationId, client);
+    for (const roomKey of client.rooms ?? []) {
+      this.removeFromRoom(roomKey, client);
     }
     client.rooms?.clear();
   }
@@ -131,7 +151,7 @@ export class ChatGateway {
         payload.reservationId,
         user,
       );
-      this.addToRoom(payload.reservationId, client);
+      this.addToRoom(this.reservationRoomKey(payload.reservationId), client);
 
       return {
         type: 'message:history',
@@ -148,7 +168,7 @@ export class ChatGateway {
     @ConnectedSocket() client: ChatSocket,
     @MessageBody() payload: LeaveChatDto,
   ): void {
-    this.removeFromRoom(payload.reservationId, client);
+    this.removeFromRoom(this.reservationRoomKey(payload.reservationId), client);
   }
 
   @SubscribeMessage('message:send')
@@ -166,6 +186,64 @@ export class ChatGateway {
 
       await this.broadcast(payload.reservationId, {
         type: 'message:new',
+        message,
+        ...(payload.clientMessageId
+          ? { clientMessageId: payload.clientMessageId }
+          : {}),
+      });
+    } catch (error) {
+      return toChatError(error, payload.clientMessageId);
+    }
+
+    return undefined;
+  }
+
+  @SubscribeMessage('inquiry:join')
+  async joinInquiry(
+    @ConnectedSocket() client: ChatSocket,
+    @MessageBody() payload: JoinInquiryDto,
+  ): Promise<ChatServerEvent | ReturnType<typeof toChatError>> {
+    try {
+      const user = this.requireUser(client);
+      const messages = await this.inquiriesService.getHistory(
+        payload.inquiryId,
+        user,
+      );
+      this.addToRoom(this.inquiryRoomKey(payload.inquiryId), client);
+
+      return {
+        type: 'inquiry:history',
+        inquiryId: payload.inquiryId,
+        messages,
+      };
+    } catch (error) {
+      return toChatError(error);
+    }
+  }
+
+  @SubscribeMessage('inquiry:leave')
+  leaveInquiry(
+    @ConnectedSocket() client: ChatSocket,
+    @MessageBody() payload: LeaveInquiryDto,
+  ): void {
+    this.removeFromRoom(this.inquiryRoomKey(payload.inquiryId), client);
+  }
+
+  @SubscribeMessage('inquiry:message:send')
+  async sendInquiryMessage(
+    @ConnectedSocket() client: ChatSocket,
+    @MessageBody() payload: SendInquiryMessageDto,
+  ): Promise<ReturnType<typeof toChatError> | undefined> {
+    try {
+      const user = this.requireUser(client);
+      const message = await this.inquiriesService.createMessage(
+        payload.inquiryId,
+        user,
+        payload.content,
+      );
+
+      await this.broadcastInquiry(payload.inquiryId, {
+        type: 'inquiry:message:new',
         message,
         ...(payload.clientMessageId
           ? { clientMessageId: payload.clientMessageId }
@@ -222,43 +300,66 @@ export class ChatGateway {
     return client.user;
   }
 
-  private addToRoom(reservationId: string, client: ChatSocket): void {
-    let room = this.rooms.get(reservationId);
+  private addToRoom(roomKey: string, client: ChatSocket): void {
+    let room = this.rooms.get(roomKey);
     if (!room) {
       room = new Set<ChatSocket>();
-      this.rooms.set(reservationId, room);
+      this.rooms.set(roomKey, room);
     }
 
     room.add(client);
     if (!client.rooms) client.rooms = new Set<string>();
-    client.rooms.add(reservationId);
+    client.rooms.add(roomKey);
   }
 
-  private removeFromRoom(reservationId: string, client: ChatSocket): void {
-    const room = this.rooms.get(reservationId);
+  private removeFromRoom(roomKey: string, client: ChatSocket): void {
+    const room = this.rooms.get(roomKey);
     room?.delete(client);
-    if (room?.size === 0) this.rooms.delete(reservationId);
-    client.rooms?.delete(reservationId);
+    if (room?.size === 0) this.rooms.delete(roomKey);
+    client.rooms?.delete(roomKey);
   }
 
   private async broadcast(
     reservationId: string,
     event: Extract<ChatServerEvent, { type: 'message:new' }>,
   ): Promise<void> {
-    const room = this.rooms.get(reservationId);
+    await this.broadcastToRoom(
+      this.reservationRoomKey(reservationId),
+      event,
+      (user) => this.chatService.assertParticipant(reservationId, user),
+    );
+  }
+
+  private async broadcastInquiry(
+    inquiryId: string,
+    event: Extract<ChatServerEvent, { type: 'inquiry:message:new' }>,
+  ): Promise<void> {
+    await this.broadcastToRoom(
+      this.inquiryRoomKey(inquiryId),
+      event,
+      (user) => this.inquiriesService.assertParticipant(inquiryId, user),
+    );
+  }
+
+  private async broadcastToRoom(
+    roomKey: string,
+    event: ChatBroadcastEvent,
+    authorize: (user: AuthenticatedUser) => Promise<unknown>,
+  ): Promise<void> {
+    const room = this.rooms.get(roomKey);
     if (!room) return;
 
     const clients = [...room];
     for (const client of clients) {
       if (!client.user) {
-        this.removeFromRoom(reservationId, client);
+        this.removeFromRoom(roomKey, client);
         continue;
       }
 
       try {
-        await this.chatService.assertParticipant(reservationId, client.user);
+        await authorize(client.user);
       } catch {
-        this.removeFromRoom(reservationId, client);
+        this.removeFromRoom(roomKey, client);
         continue;
       }
 
@@ -266,5 +367,13 @@ export class ChatGateway {
         client.send(JSON.stringify(event));
       }
     }
+  }
+
+  private reservationRoomKey(reservationId: string): string {
+    return `reservation:${reservationId}`;
+  }
+
+  private inquiryRoomKey(inquiryId: string): string {
+    return `inquiry:${inquiryId}`;
   }
 }

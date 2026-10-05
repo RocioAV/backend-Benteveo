@@ -3,6 +3,7 @@ import { AuthGuard } from '../../common/guards/auth.guard';
 import type { AuthenticatedUser } from '../../common/types/user.types';
 import { Role } from '../../common/types/user.types';
 import type { ChatService } from './chat.service';
+import type { InquiriesService } from '../inquiries/inquiries.service';
 import { ChatGateway } from './chat.gateway';
 
 interface TestClient {
@@ -25,17 +26,30 @@ describe('ChatGateway', () => {
   const getHistory = jest.fn();
   const createMessage = jest.fn();
   const assertParticipant = jest.fn();
+  const getInquiryHistory = jest.fn();
+  const createInquiryMessage = jest.fn();
+  const assertInquiryParticipant = jest.fn();
   const authenticateSessionToken = jest.fn();
   const chatService = {
     getHistory,
     createMessage,
     assertParticipant,
   } as unknown as ChatService;
+  const inquiriesService = {
+    getHistory: getInquiryHistory,
+    createMessage: createInquiryMessage,
+    assertParticipant: assertInquiryParticipant,
+  } as unknown as InquiriesService;
   const authGuard = { authenticateSessionToken } as unknown as AuthGuard;
   const config = {
     get: jest.fn().mockReturnValue('http://localhost:5173'),
   } as unknown as ConfigService;
-  const gateway = new ChatGateway(chatService, authGuard, config);
+  const gateway = new ChatGateway(
+    chatService,
+    inquiriesService,
+    authGuard,
+    config,
+  );
   const user: AuthenticatedUser = {
     sub: 'user-1',
     email: 'user@example.com',
@@ -57,6 +71,16 @@ describe('ChatGateway', () => {
       id: 'reservation-1',
       status: 'ACTIVE',
     });
+    getInquiryHistory.mockResolvedValue([]);
+    createInquiryMessage.mockResolvedValue({
+      id: 'inquiry-message-1',
+      inquiryId: 'inquiry-1',
+      senderId: 'user-1',
+      content: 'hello',
+      createdAt: new Date('2026-10-04T12:00:00.000Z'),
+      readAt: null,
+    });
+    assertInquiryParticipant.mockResolvedValue({ id: 'inquiry-1' });
     authenticateSessionToken.mockResolvedValue(user);
   });
 
@@ -148,5 +172,84 @@ describe('ChatGateway', () => {
       clientMessageId: 'client-2',
     });
     expect(client.send).not.toHaveBeenCalled();
+  });
+
+  it('returns namespaced inquiry history and broadcasts persisted messages', async () => {
+    const client = createClient();
+    client.user = user;
+    const order: string[] = [];
+    getInquiryHistory.mockResolvedValue([
+      { id: 'old-message', inquiryId: 'inquiry-1' },
+    ]);
+    createInquiryMessage.mockImplementation(async () => {
+      order.push('persist');
+      return {
+        id: 'inquiry-message-1',
+        inquiryId: 'inquiry-1',
+        senderId: 'user-1',
+        content: 'hello',
+      };
+    });
+    assertInquiryParticipant.mockImplementation(async () => {
+      order.push('authorize-broadcast');
+      return { id: 'inquiry-1' };
+    });
+
+    await expect(
+      gateway.joinInquiry(client, { inquiryId: 'inquiry-1' }),
+    ).resolves.toEqual({
+      type: 'inquiry:history',
+      inquiryId: 'inquiry-1',
+      messages: [{ id: 'old-message', inquiryId: 'inquiry-1' }],
+    });
+    await gateway.sendInquiryMessage(client, {
+      inquiryId: 'inquiry-1',
+      content: 'hello',
+      clientMessageId: 'inquiry-client-1',
+    });
+
+    expect(createInquiryMessage).toHaveBeenCalledWith(
+      'inquiry-1',
+      user,
+      'hello',
+    );
+    expect(order).toEqual(['persist', 'authorize-broadcast']);
+    expect(JSON.parse(client.send.mock.calls[0][0])).toEqual({
+      type: 'inquiry:message:new',
+      message: {
+        id: 'inquiry-message-1',
+        inquiryId: 'inquiry-1',
+        senderId: 'user-1',
+        content: 'hello',
+      },
+      clientMessageId: 'inquiry-client-1',
+    });
+  });
+
+  it('keeps reservation and inquiry rooms separate when identifiers match', async () => {
+    const reservationClient = createClient();
+    reservationClient.user = user;
+    const inquiryClient = createClient();
+    inquiryClient.user = user;
+
+    await gateway.join(reservationClient, { reservationId: 'same-id' });
+    await gateway.joinInquiry(inquiryClient, { inquiryId: 'same-id' });
+    await gateway.sendMessage(reservationClient, {
+      reservationId: 'same-id',
+      content: 'reservation',
+    });
+    await gateway.sendInquiryMessage(inquiryClient, {
+      inquiryId: 'same-id',
+      content: 'inquiry',
+    });
+
+    expect(
+      JSON.parse(reservationClient.send.mock.calls[0][0]).type,
+    ).toBe('message:new');
+    expect(reservationClient.send).toHaveBeenCalledTimes(1);
+    expect(
+      JSON.parse(inquiryClient.send.mock.calls[0][0]).type,
+    ).toBe('inquiry:message:new');
+    expect(inquiryClient.send).toHaveBeenCalledTimes(1);
   });
 });
