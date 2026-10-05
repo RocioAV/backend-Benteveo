@@ -2,8 +2,8 @@ import {
   ArrayMaxSize,
   IsArray,
   IsIn,
-  IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -29,7 +29,7 @@ export class ChatProductContextDto {
   title?: string;
 
   @IsOptional()
-  @IsInt()
+  @IsNumber()
   @Min(0)
   @Max(10000000)
   pricePerDay?: number;
