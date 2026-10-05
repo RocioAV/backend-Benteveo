@@ -42,9 +42,10 @@ describe('AppException', () => {
 });
 
 describe('ErrorCode', () => {
-  it('define los 13 códigos estables del contrato de error', () => {
+  it('define los 15 códigos estables del contrato de error', () => {
     expect(Object.values(ErrorCode).sort()).toEqual(
       [
+        'AI_UNAVAILABLE',
         'AUTH_EMAIL_TAKEN',
         'AUTH_FORBIDDEN',
         'AUTH_INVALID_CREDENTIALS',
@@ -55,6 +56,7 @@ describe('ErrorCode', () => {
         'PAYMENT_ALREADY_APPROVED',
         'PAYMENT_NOT_FOUND',
         'PAYMENT_REVERSAL_FAILED',
+        'RATE_LIMITED',
         'RESOURCE_CONFLICT',
         'RESOURCE_NOT_FOUND',
         'VALIDATION_FAILED',

@@ -21,6 +21,7 @@ import { VerificationModule } from './modules/verification/verification.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { AiModule } from './modules/ai/ai.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 @Module({
@@ -52,6 +53,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     PaymentsModule,
     FavoritesModule,
     ReviewsModule,
+    AiModule,
     // StripeModule,
     // SubscriptionModule,
   ],
