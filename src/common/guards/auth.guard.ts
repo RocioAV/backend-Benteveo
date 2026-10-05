@@ -12,6 +12,11 @@ import { SESSION_COOKIE_NAME } from '../constants/cookies';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../types/user.types';
 
+interface SessionJwtPayload {
+  sub?: unknown;
+  csrf?: unknown;
+}
+
 /**
  * Guard global de autenticación.
  *
@@ -48,12 +53,32 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    let payload: { sub: string; email: string; role: string; csrf: string };
+    request.user = await this.authenticateSessionToken(token);
+
+    return true;
+  }
+
+  /**
+   * Verifies the HttpOnly session cookie and revalidates its user against the
+   * database. HTTP and WebSocket entry points share this exact policy.
+   */
+  async authenticateSessionToken(
+    token: string,
+  ): Promise<AuthenticatedUser & { csrf: string }> {
+    if (!token) {
+      throw new UnauthorizedException();
+    }
+
+    let payload: SessionJwtPayload;
     try {
-      payload = await this.jwtService.verifyAsync(token, {
+      payload = await this.jwtService.verifyAsync<SessionJwtPayload>(token, {
         secret: this.configService.get<string>('JWT_SECRET'),
       });
     } catch {
+      throw new UnauthorizedException();
+    }
+
+    if (typeof payload.sub !== 'string' || typeof payload.csrf !== 'string') {
       throw new UnauthorizedException();
     }
 
@@ -72,7 +97,7 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    request.user = {
+    return {
       sub: dbUser.id,
       email: dbUser.email,
       role: dbUser.role as AuthenticatedUser['role'],
@@ -81,7 +106,5 @@ export class AuthGuard implements CanActivate {
       // CsrfGuard valide el triple double-submit (header === cookie === claim).
       csrf: payload.csrf,
     } satisfies AuthenticatedUser & { csrf: string };
-
-    return true;
   }
 }

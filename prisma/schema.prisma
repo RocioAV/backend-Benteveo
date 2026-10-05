@@ -57,6 +57,7 @@ model User {
   comments            Comment[]
   givenRatings        UserRating[]         @relation("UserRatingRater")
   receivedRatings     UserRating[]         @relation("UserRatingRated")
+  messages            Message[]
 
   @@index([role])
   @@index([isDeleted])
@@ -141,11 +142,27 @@ model Reservation {
   user        User         @relation(fields: [userId], references: [id])
   payment     Payment?
   userRatings UserRating[]
+  messages    Message[]
 
   @@index([userId])
   @@index([productId])
   @@index([status])
   @@index([dateInit])
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  reservationId String
+  senderId      String
+  content       String      @db.Text
+  createdAt     DateTime    @default(now())
+  readAt        DateTime?
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  sender      User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId, createdAt])
+  @@index([senderId])
 }
 
 model VerificationRequest {
