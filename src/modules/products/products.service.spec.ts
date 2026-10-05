@@ -82,7 +82,7 @@ describe('ProductsService', () => {
 
       expect(mockProductUpdate).toHaveBeenCalledWith({
         where: { id: 'prod-1' },
-        data: { isDeleted: true },
+        data: { isDeleted: true, isAvailable: false },
       });
     });
 

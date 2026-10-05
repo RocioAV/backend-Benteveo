@@ -13,7 +13,7 @@ const mockFile = {
   mimetype: 'image/jpeg',
 } as Express.Multer.File;
 
-const fullFiles: KycFiles = {
+const fullFiles: Required<KycFiles> = {
   front: [mockFile],
   back: [mockFile],
   selfie: [mockFile],

@@ -157,7 +157,7 @@ export class ReservationsService {
   }
 
   async findAll(filters: FindReservationsDto) {
-    const where: any = {};
+    const where: Prisma.ReservationWhereInput = {};
 
     if (filters.userId) where.userId = filters.userId;
     if (filters.productId) where.productId = filters.productId;
@@ -269,18 +269,45 @@ export class ReservationsService {
       }
     }
 
-    const cancelledReservation = await this.prisma.reservation.update({
-      where: { id },
-      data: {
-        status: 'CANCELLED',
-        cancellationConfirmedAt: new Date(),
-      },
+    let cancelledReservation: Prisma.ReservationGetPayload<{
       include: {
-        product: { include: { photos: true } },
-        user: { select: SAFE_USER_SELECT },
-        payment: true,
-      },
-    });
+        product: { include: { photos: true } };
+        user: { select: typeof SAFE_USER_SELECT };
+        payment: true;
+      };
+    }>;
+
+    try {
+      cancelledReservation = await this.prisma.reservation.update({
+        where: { id, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+        data: {
+          status: 'CANCELLED',
+          cancellationConfirmedAt: new Date(),
+        },
+        include: {
+          product: { include: { photos: true } },
+          user: { select: SAFE_USER_SELECT },
+          payment: true,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        const current = await this.prisma.reservation.findUnique({
+          where: { id },
+          select: { status: true },
+        });
+        if (current?.status === 'CANCELLED') {
+          throw new ReservationAlreadyCancelledException(id);
+        }
+        throw new InvalidReservationStatusException(
+          'No se puede cancelar esta reserva',
+        );
+      }
+      throw error;
+    }
 
     this.logger.log('Reserva cancelada', {
       reservationId: id,

@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { WsAdapter } from '@nestjs/platform-ws';
+import type { Express } from 'express';
 import { AppModule } from './app.module';
 import { setupSwagger } from './swagger';
 
@@ -72,6 +73,12 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  // Detrás del proxy de Render (1 salto): req.ip usa X-Forwarded-For real,
+  // necesario para que el rate limit por IP funcione en producción.
+  const expressApp = app.getHttpAdapter().getInstance() as Express;
+  expressApp.set('trust proxy', 1);
+  expressApp.disable('x-powered-by');
+
   app.enableCors({
     origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
@@ -87,4 +94,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

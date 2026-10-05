@@ -15,18 +15,22 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { ImageFileValidator } from '../../common/validators/image-file.validator';
 
+export const AVATAR_MAX_FILE_SIZE = 5 * 1024 * 1024;
+
 @Controller('profile')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
-  @Get() 
+  @Get()
   @UseGuards(AuthGuard)
   async getMyProfile(@CurrentUser() user: AuthenticatedUser) {
     return await this.profileService.findByUserId(user.sub);
   }
 
   @Post('avatar')
-  @UseInterceptors(FileInterceptor('avatar'))
+  @UseInterceptors(
+    FileInterceptor('avatar', { limits: { fileSize: AVATAR_MAX_FILE_SIZE } }),
+  )
   async uploadAvatar(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile(
@@ -40,13 +44,12 @@ export class ProfileController {
               'image/png',
               'image/webp',
             ],
+            maxFileSize: AVATAR_MAX_FILE_SIZE,
           }),
         ],
         exceptionFactory: (error) => {
           const message =
-            error === 'File is required'
-              ? 'Debes adjuntar una imagen'
-              : error;
+            error === 'File is required' ? 'Debes adjuntar una imagen' : error;
           return new BadRequestException(message);
         },
       }),

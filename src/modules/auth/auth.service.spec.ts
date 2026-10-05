@@ -1,9 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import {
-  parseExpiresInToSeconds,
-  resolveSecureFlag,
-} from './auth.service';
+import { parseExpiresInToSeconds, resolveSecureFlag } from './auth.service';
 import { InvalidCredentialsException } from '../../common/exceptions/auth-exceptions';
 import { ErrorCode } from '../../common/constants/error-codes';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -13,7 +10,8 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import type { UserService } from '../users/user.service';
 
 // Hash bcrypt REAL de "password123" (cost 4 para que el test sea rápido).
-const PASSWORD_HASH = '$2b$04$ArdjcxICMzSJaDSYG1Oe9.xBQNbutriXJ7qfNA3sKdMgrt9eIUogS';
+const PASSWORD_HASH =
+  '$2b$04$ArdjcxICMzSJaDSYG1Oe9.xBQNbutriXJ7qfNA3sKdMgrt9eIUogS';
 
 describe('AuthService', () => {
   const dto: CreateUserDto = {
@@ -45,9 +43,11 @@ describe('AuthService', () => {
   };
 
   const mockFindByEmail = jest.fn<Promise<any>, [string]>();
+  const mockFindByDni = jest.fn<Promise<any>, [string]>();
   const mockUserCreate = jest.fn<Promise<any>, [any]>();
   const mockUserService = {
     findByEmail: mockFindByEmail,
+    findByDni: mockFindByDni,
     create: mockUserCreate,
   } as unknown as UserService;
 
@@ -76,6 +76,8 @@ describe('AuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFindByEmail.mockReset();
+    mockFindByDni.mockReset();
+    mockFindByDni.mockResolvedValue(null);
     mockUserCreate.mockReset();
     mockFindUnique.mockReset();
     mockSignAsync.mockReset();

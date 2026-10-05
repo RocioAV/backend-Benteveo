@@ -94,6 +94,18 @@ export function normalizeException(exception: unknown): NormalizedError {
     };
   }
 
+  if (isMulterLimitError(exception)) {
+    return {
+      status: HttpStatus.BAD_REQUEST,
+      code: ErrorCode.VALIDATION_FAILED,
+      message:
+        exception.code === 'LIMIT_FILE_SIZE'
+          ? 'El archivo supera el tamaño máximo permitido'
+          : 'Archivo inválido',
+      fields: null,
+    };
+  }
+
   return {
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     code: ErrorCode.INTERNAL_ERROR,
@@ -102,23 +114,30 @@ export function normalizeException(exception: unknown): NormalizedError {
   };
 }
 
+function isMulterLimitError(
+  exception: unknown,
+): exception is Error & { code: string } {
+  return (
+    exception instanceof Error &&
+    'code' in exception &&
+    typeof (exception as { code?: unknown }).code === 'string' &&
+    (exception as { code: string }).code.startsWith('LIMIT_')
+  );
+}
+
+const STATUS_CODE_MAP: Readonly<Record<number, ErrorCode>> = {
+  [HttpStatus.UNAUTHORIZED]: ErrorCode.AUTH_UNAUTHORIZED,
+  [HttpStatus.FORBIDDEN]: ErrorCode.AUTH_FORBIDDEN,
+  [HttpStatus.NOT_FOUND]: ErrorCode.RESOURCE_NOT_FOUND,
+  [HttpStatus.CONFLICT]: ErrorCode.RESOURCE_CONFLICT,
+  [HttpStatus.TOO_MANY_REQUESTS]: ErrorCode.RATE_LIMITED,
+  [HttpStatus.UNPROCESSABLE_ENTITY]: ErrorCode.VALIDATION_FAILED,
+  [HttpStatus.BAD_REQUEST]: ErrorCode.VALIDATION_FAILED,
+};
+
 /** Deriva un `code` estable a partir del status HTTP de una HttpException genérica. */
 function mapStatusToCode(status: number): ErrorCode {
-  switch (status) {
-    case HttpStatus.UNAUTHORIZED:
-      return ErrorCode.AUTH_UNAUTHORIZED;
-    case HttpStatus.FORBIDDEN:
-      return ErrorCode.AUTH_FORBIDDEN;
-    case HttpStatus.NOT_FOUND:
-      return ErrorCode.RESOURCE_NOT_FOUND;
-    case HttpStatus.CONFLICT:
-      return ErrorCode.RESOURCE_CONFLICT;
-    case HttpStatus.UNPROCESSABLE_ENTITY:
-    case HttpStatus.BAD_REQUEST:
-      return ErrorCode.VALIDATION_FAILED;
-    default:
-      return ErrorCode.INTERNAL_ERROR;
-  }
+  return STATUS_CODE_MAP[status] ?? ErrorCode.INTERNAL_ERROR;
 }
 
 /** Mapea los errores Prisma conocidos a status + code estables. */

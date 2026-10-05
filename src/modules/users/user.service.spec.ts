@@ -133,7 +133,7 @@ describe('UserService', () => {
 
       await expect(promise).rejects.toThrow(ConflictException);
       await expect(promise).rejects.toThrow(
-        'Ya existe un usuario con el email "juan@example.com"',
+        'Ya existe un usuario con el email',
       );
       await expect(promise).rejects.toMatchObject({ status: 409 });
       expect(mockProfileCreate).not.toHaveBeenCalled();

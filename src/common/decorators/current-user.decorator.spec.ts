@@ -1,5 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import { getCurrentUser } from './current-user.decorator';
+import { Role } from '../types/user.types';
 import type { AuthenticatedUser } from '../types/user.types';
 
 function createContext(user?: AuthenticatedUser) {
@@ -14,7 +15,7 @@ describe('getCurrentUser (CurrentUser decorator factory)', () => {
   const fakeUser: AuthenticatedUser = {
     sub: 'uuid-1',
     email: 'test@test.com',
-    role: 'ADMIN',
+    role: Role.ADMIN,
     isIdentityVerified: true,
   };
 

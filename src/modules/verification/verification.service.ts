@@ -15,6 +15,8 @@ export interface KycFiles {
   selfie?: Express.Multer.File[];
 }
 
+export const KYC_MAX_FILE_SIZE = 8 * 1024 * 1024;
+
 export interface VerificationSubmitResult {
   id: string;
   status: VerificationStatus;
@@ -189,11 +191,12 @@ export class VerificationService {
     }
     const validator = new ImageFileValidator({
       allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      maxFileSize: KYC_MAX_FILE_SIZE,
     });
     for (const key of ['front', 'back', 'selfie'] as const) {
       const file = files[key]?.[0];
       if (file && !validator.isValid(file)) {
-        throw new BadRequestException(validator.buildErrorMessage());
+        throw new BadRequestException(validator.buildErrorMessage(file));
       }
     }
   }

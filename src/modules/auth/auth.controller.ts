@@ -7,10 +7,13 @@ import {
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginDto } from './dto/login-dto';
 import {
@@ -22,6 +25,7 @@ import {
 } from '../../common/constants/cookies';
 
 @Controller('auth')
+@UseGuards(RateLimitGuard)
 export class AuthController {
   constructor(private authService: AuthService) {}
 
@@ -31,6 +35,7 @@ export class AuthController {
    */
   @HttpCode(HttpStatus.NO_CONTENT)
   @Public()
+  @RateLimit({ max: 5, windowMs: 60_000 })
   @Post('login')
   async signIn(
     @Body() signInDto: LoginDto,
@@ -98,11 +103,14 @@ export class AuthController {
   @Public()
   @Get('csrf')
   getCsrfToken(@Req() req: Request): { csrfToken: string | null } {
-    return { csrfToken: req.cookies?.[CSRF_COOKIE_NAME] ?? null };
+    const cookies = req.cookies as
+      Record<string, string | undefined> | undefined;
+    return { csrfToken: cookies?.[CSRF_COOKIE_NAME] ?? null };
   }
 
   /**Registro */
   @Public()
+  @RateLimit({ max: 5, windowMs: 60_000 })
   @Post('register')
   signUp(@Body() signUpDto: CreateUserDto) {
     return this.authService.signUp(signUpDto);

@@ -93,7 +93,6 @@ export class MercadoPagoService {
       paymentId,
       preferenceId: response.id,
     });
-    console.log('Preferencia creada', response);
 
     await this.prisma.payment.update({
       where: { id: paymentId },
@@ -172,28 +171,25 @@ export class MercadoPagoService {
       );
     }
 
-    // 1. Consultar y mostrar todos los datos del pago en MP
+    // 1. Consultar el estado real del pago en MP (sin loguear datos del pagador)
     try {
       const paymentData = await this.paymentClient.get({ id: mpPaymentId });
-      console.log('DATOS DEL PAGO EN MERCADO PAGO:', JSON.stringify(paymentData, null, 2));
-
-      // O campos clave específicos:
-      console.log('RESUMEN PAGO:', {
-        id: paymentData.id,
+      this.logger.log('Consulta de pago en Mercado Pago', {
+        mpPaymentId: paymentData.id,
         status: paymentData.status,
-        status_detail: paymentData.status_detail,
-        live_mode: paymentData.live_mode, // <-- Esto te dirá si MP lo tomó como test (false) o producción (true)
-        collector_id: paymentData.collector_id,
-        payer: paymentData.payer?.email,
-        transaction_amount: paymentData.transaction_amount,
+        statusDetail: paymentData.status_detail,
+        liveMode: paymentData.live_mode,
       });
-    } catch (err: any) {
-      console.error('Error al consultar datos del pago en MP:', err?.message || err);
+    } catch (error) {
+      this.logger.warn('Error al consultar el pago en Mercado Pago', {
+        paymentId,
+        mpPaymentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     // 2. Ejecutar el reembolso
     try {
-      console.log(paymentId, mpPaymentId);
       await this.refundClient.total({ payment_id: mpPaymentId });
     } catch (error) {
       const mpStatus = await this.getMpPaymentStatus(mpPaymentId);

@@ -47,7 +47,9 @@ export class PaymentsService {
     }
 
     if (payment.reservation.userId !== userId) {
-      throw new ForbiddenException('No tenés permiso para sincronizar este pago');
+      throw new ForbiddenException(
+        'No tenés permiso para sincronizar este pago',
+      );
     }
 
     return this.mercadopagoService.syncPayment(id);

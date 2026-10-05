@@ -11,6 +11,7 @@ import {
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { VerificationService } from './verification.service';
+import { KYC_MAX_FILE_SIZE } from './verification.service';
 import { RejectVerificationDto } from './dto/reject-verification.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
@@ -23,11 +24,14 @@ export class VerificationController {
 
   @Post()
   @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'front', maxCount: 1 },
-      { name: 'back', maxCount: 1 },
-      { name: 'selfie', maxCount: 1 },
-    ]),
+    FileFieldsInterceptor(
+      [
+        { name: 'front', maxCount: 1 },
+        { name: 'back', maxCount: 1 },
+        { name: 'selfie', maxCount: 1 },
+      ],
+      { limits: { fileSize: KYC_MAX_FILE_SIZE } },
+    ),
   )
   @ApiConsumes('multipart/form-data')
   @ApiBody({

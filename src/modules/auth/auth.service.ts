@@ -1,12 +1,13 @@
-import { Injectable, ConflictException, Logger } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
-import { ConfigService } from "@nestjs/config";
-import { randomUUID } from "node:crypto";
-import { PrismaService } from "../../prisma/prisma.service";
-import { UserService } from "../users/user.service"; 
+import { Injectable, ConflictException, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
+import { PrismaService } from '../../prisma/prisma.service';
+import { UserService } from '../users/user.service';
 import * as bcrypt from 'bcrypt';
-import { CreateUserDto } from "../users/dto/create-user.dto";
-import { InvalidCredentialsException } from "../../common/exceptions/auth-exceptions";
+import { CreateUserDto } from '../users/dto/create-user.dto';
+import { InvalidCredentialsException } from '../../common/exceptions/auth-exceptions';
+import { maskDni, maskEmail } from '../../common/utils/mask.util';
 
 /** Expiración de sesión por defecto (60 minutos) usada como fallback seguro. */
 const DEFAULT_JWT_EXPIRES_IN = '60m';
@@ -15,7 +16,8 @@ const DEFAULT_JWT_EXPIRES_IN = '60m';
  * Hash bcrypt dummy contra el que se compara cuando el email no existe. Evita
  * que la ausencia de usuario sea detectable por timing (anti-enumeración).
  */
-const DUMMY_HASH = '$2b$10$Y5G9GhatPAU6GzPD9f7Z7uOBFHq4Bc.8I7aWRqDLe3C1DPX1ykL.i';
+const DUMMY_HASH =
+  '$2b$10$Y5G9GhatPAU6GzPD9f7Z7uOBFHq4Bc.8I7aWRqDLe3C1DPX1ykL.i';
 
 /** Resultado de un login exitoso. El controller lo usa para setear las cookies. */
 export interface SignInResult {
@@ -61,7 +63,7 @@ export function resolveSecureFlag(nodeEnv: string | undefined): boolean {
 }
 
 @Injectable()
-export class AuthService{
+export class AuthService {
   private readonly logger = new Logger('Auth');
 
   constructor(
@@ -72,10 +74,10 @@ export class AuthService{
   ) {}
 
   async signIn(email: string, pass: string): Promise<SignInResult> {
-    this.logger.log('Intento de login', { email });
+    this.logger.log('Intento de login', { email: maskEmail(email) });
 
     const user = await this.prisma.user.findUnique({
-        where: { email },
+      where: { email },
     });
 
     // Se compara SIEMPRE (contra hash dummy si no existe el usuario) para que
@@ -86,11 +88,14 @@ export class AuthService{
     );
 
     if (!user || user.isDeleted || !passwordMatches) {
-      this.logger.warn('Login fallido', { email });
+      this.logger.warn('Login fallido', { email: maskEmail(email) });
       throw new InvalidCredentialsException();
     }
 
-    this.logger.log('Login exitoso', { userId: user.id, email });
+    this.logger.log('Login exitoso', {
+      userId: user.id,
+      email: maskEmail(email),
+    });
 
     const csrfToken = randomUUID();
     const payload = {
@@ -105,29 +110,38 @@ export class AuthService{
     return {
       accessToken,
       csrfToken,
-      maxAgeMs: parseExpiresInToSeconds(
-        this.configService.get<string>('JWT_EXPIRES_IN'),
-      ) * 1000,
+      maxAgeMs:
+        parseExpiresInToSeconds(
+          this.configService.get<string>('JWT_EXPIRES_IN'),
+        ) * 1000,
       secure: resolveSecureFlag(process.env.NODE_ENV),
     };
   }
 
   async signUp(signUpDto: CreateUserDto) {
-      this.logger.log('Intento de registro', { email: signUpDto.email });
+    this.logger.log('Intento de registro', {
+      email: maskEmail(signUpDto.email),
+    });
 
-      const userExists = await this.userService.findByEmail(signUpDto.email);
-      if (userExists) {
-        this.logger.warn('Registro fallido: email ya en uso', { email: signUpDto.email });
-        throw new ConflictException('El email ya está en uso');
-      }
+    const userExists = await this.userService.findByEmail(signUpDto.email);
+    if (userExists) {
+      this.logger.warn('Registro fallido: email ya en uso', {
+        email: maskEmail(signUpDto.email),
+      });
+      throw new ConflictException('El email ya está en uso');
+    }
 
-      const dniTaken = await this.userService.findByDni(signUpDto.dni);
-      if (dniTaken) {
-        this.logger.warn('Registro fallido: DNI ya en uso', { dni: signUpDto.dni });
-        throw new ConflictException('El DNI ya está en uso');
-      }
+    const dniTaken = await this.userService.findByDni(signUpDto.dni);
+    if (dniTaken) {
+      this.logger.warn('Registro fallido: DNI ya en uso', {
+        dni: maskDni(signUpDto.dni),
+      });
+      throw new ConflictException('El DNI ya está en uso');
+    }
 
-      this.logger.log('Registro exitoso', { email: signUpDto.email });
-      return this.userService.create(signUpDto);
+    this.logger.log('Registro exitoso', {
+      email: maskEmail(signUpDto.email),
+    });
+    return this.userService.create(signUpDto);
   }
 }

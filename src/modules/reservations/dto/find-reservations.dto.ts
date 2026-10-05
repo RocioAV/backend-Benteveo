@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { ReservationStatus } from '@prisma/client';
 
 export class FindReservationsDto {
   @IsString()
@@ -9,9 +10,9 @@ export class FindReservationsDto {
   @IsOptional()
   productId?: string;
 
-  @IsString()
+  @IsEnum(ReservationStatus)
   @IsOptional()
-  status?: string;
+  status?: ReservationStatus;
 
   @IsDateString()
   @IsOptional()

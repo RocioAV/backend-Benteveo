@@ -5,6 +5,7 @@ import { UserModule } from './modules/users/user.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthGuard } from './common/guards/auth.guard';
@@ -38,10 +39,7 @@ import { InquiriesModule } from './modules/inquiries/inquiries.module';
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
           expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ?? '60m') as
-            | `${number}s`
-            | `${number}m`
-            | `${number}h`
-            | `${number}d`,
+            `${number}s` | `${number}m` | `${number}h` | `${number}d`,
         },
       }),
     }),
@@ -101,6 +99,8 @@ import { InquiriesModule } from './modules/inquiries/inquiries.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware).forRoutes('*');
+    consumer
+      .apply(RequestIdMiddleware, SecurityHeadersMiddleware)
+      .forRoutes('*');
   }
 }
